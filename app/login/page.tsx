@@ -30,16 +30,6 @@ export default function LoginPage() {
       <div className="p-6 rounded-xl shadow-md bg-white">
         <h1 className="text-2xl font-semibold mb-4 text-center">Welcome</h1>
         {errorMessage && <p className="text-red-500 mb-4 text-center">{errorMessage}</p>}
-        {/* <button
-          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-          className="flex justify-center"
-        >
-          <img
-            src="https://developers.google.com/identity/images/btn_google_signin_light_normal_web.png"
-            alt="Sign in with Google"
-            className="h-10"
-          />
-        </button> */}
         <GoogleLogin
             onSuccess={() => signIn("google", { callbackUrl: "/dashboard" })}
             onError={() => console.error('Login failed')}
