@@ -9,6 +9,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   if (!googleClientId) {
     console.warn("NEXT_PUBLIC_GOOGLE_CLIENT_ID is not set");
   }
+  console.log(googleClientId);
 
   return (
     <SessionProvider>
