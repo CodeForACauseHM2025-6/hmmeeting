@@ -3,10 +3,10 @@ import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 
 export const {
-  handlers: { GET, POST },
-  auth,
-  signIn,
-  signOut,
+  handlers: { GET, POST }, // GET and POST handlers for the auth routes
+  auth, // auth function to get the user's session
+  signIn, // sign in function to sign in the user
+  signOut, // sign out function to sign out the user
 } = NextAuth({
   providers: [
     Google({
@@ -20,7 +20,7 @@ export const {
       return user?.email?.endsWith("@horacemann.org") || false;
     },
   },
-  // redirect 
+  // redirect to login no matter what 
   pages: {
     signIn: "/login",
     error: "/login", 
