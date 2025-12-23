@@ -20,7 +20,7 @@ export default function AllPeoplePage() {
     <div className="w-full max-w-xl mx-auto mt-12 px-4">
       {/* Title */}
       <h1 className="text-3xl font-bold text-center mb-8">
-        Search for Students and Teachers
+        Search for Saved People
       </h1>
 
       {/* Card */}
@@ -105,10 +105,10 @@ export default function AllPeoplePage() {
         </button>
 
         <button
-          onClick={() => router.push("/savedpeople")}
+          onClick={() => router.push("/allpeople")}
           className="text-sm text-white underline hover:text-gray-300 transition-colors"
         >
-          Back
+          More People
         </button>
       </div>
     </div>
