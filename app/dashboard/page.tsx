@@ -54,8 +54,9 @@ export default function DashboardPage() {
     return <div>Loading...</div>;
   }
   if (!user) {
-    router.push("/account/setup");
-    return null;
+    router.push("/profilepage");
+    return;
+    
   }
 
     switch (user.role) {

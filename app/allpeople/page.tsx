@@ -92,13 +92,14 @@ export default function AllPeoplePage() {
       {/* Action buttons */}
       <div className="mt-8 flex flex-col items-center gap-3">
         <button
+        onClick = {() => router.push("/meetingtimes")}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors w-fit"
         >
           Confirm
         </button>
 
         <button
-          onClick={() => router.push("/dashboard")}
+          onClick={() => router.push("/profilepage")}
           className="px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors w-fit"
         >
           Cancel
