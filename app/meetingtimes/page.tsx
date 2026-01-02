@@ -1,22 +1,24 @@
 "use client";
 
 import * as React from "react";
-
-type PeriodKey = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H";
+import { database } from '@/firebase';
+import { ref, onValue } from 'firebase/database';
+import { useSearchParams } from 'next/navigation';
 
 type TimeSlot = {
   id: string;
   startMin: number;
   endMin: number;
-  label: string; // "9:15 AM - 9:35 AM"
+  label: string;
+  day: number;
+  duration: number;
 };
 
-type PeriodAvailability = {
-  period: PeriodKey;
-  slots: TimeSlot[];
+type FreePeriod = {
+  day: number;
+  start: string;
+  end: string;
 };
-
-type RankedSlot = TimeSlot & { period: PeriodKey };
 
 const COLORS = {
   maroon: "#5b0d1f",
@@ -29,13 +31,11 @@ function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
-// ---------- Time helpers ----------
-function toMinutes(h24: number, m: number) {
-  return h24 * 60 + m;
+function timeStringToMinutes(timeStr: string): number {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return hours * 60 + minutes;
 }
-function addMinutes(mins: number, delta: number) {
-  return mins + delta;
-}
+
 function formatTime(mins: number) {
   const h24 = Math.floor(mins / 60);
   const m = mins % 60;
@@ -45,61 +45,11 @@ function formatTime(mins: number) {
   const mm = m.toString().padStart(2, "0");
   return `${h12}:${mm} ${ampm}`;
 }
+
 function formatRange(startMin: number, endMin: number) {
   return `${formatTime(startMin)} - ${formatTime(endMin)}`;
 }
 
-// ---------- Your schedule ----------
-const PERIOD_RANGES: Record<PeriodKey, { start: number; end: number }> = {
-  A: { start: toMinutes(8, 25), end: toMinutes(9, 10) },
-  B: { start: toMinutes(9, 15), end: toMinutes(10, 0) },
-  C: { start: toMinutes(10, 20), end: toMinutes(11, 5) },
-  D: { start: toMinutes(11, 10), end: toMinutes(11, 55) },
-  E: { start: toMinutes(12, 0), end: toMinutes(12, 45) },
-  F: { start: toMinutes(12, 50), end: toMinutes(13, 35) },
-  G: { start: toMinutes(13, 40), end: toMinutes(14, 25) },
-  H: { start: toMinutes(14, 30), end: toMinutes(15, 15) },
-};
-
-function buildHalfSlots(period: PeriodKey): TimeSlot[] {
-  const { start, end } = PERIOD_RANGES[period];
-
-  // first = 20 min, second = 25 min
-  const mid = addMinutes(start, 20);
-  const midClamped = Math.min(mid, end);
-
-  const s1: TimeSlot = {
-    id: `${period}-1`,
-    startMin: start,
-    endMin: midClamped,
-    label: formatRange(start, midClamped),
-  };
-
-  const s2: TimeSlot = {
-    id: `${period}-2`,
-    startMin: midClamped,
-    endMin: end,
-    label: formatRange(midClamped, end),
-  };
-
-  return [s1, s2];
-}
-
-// --- Mock page context (swap with real teacher/day data later) ---
-const MOCK = {
-  lastName: "Porres",
-  dayLabel: "Day X",
-  teacherDisplay: "Mr./Ms. XXX",
-  periods: (Object.keys(PERIOD_RANGES) as PeriodKey[]).map(
-    (p) =>
-      ({
-        period: p,
-        slots: buildHalfSlots(p),
-      }) satisfies PeriodAvailability
-  ),
-};
-
-// ---------- Simple modal ----------
 function Modal({
   open,
   onClose,
@@ -128,47 +78,175 @@ function Modal({
   );
 }
 
-export default function DavidsTaskPage() {
-  const periodKeys = React.useMemo(() => Object.keys(PERIOD_RANGES) as PeriodKey[], []);
-  const [selectedPeriod, setSelectedPeriod] = React.useState<PeriodKey>(periodKeys[0] ?? "A");
-
+export default function MeetingTimesPage() {
+  const searchParams = useSearchParams();
+  const selectedPersonName = searchParams.get('person');
+  
+  const [myFrees, setMyFrees] = React.useState<FreePeriod[]>([]);
+  const [theirFrees, setTheirFrees] = React.useState<FreePeriod[]>([]);
+  const [selectedDay, setSelectedDay] = React.useState<number>(1);
   const [selectedSlot, setSelectedSlot] = React.useState<TimeSlot | null>(null);
-  const [selectedSlotPeriod, setSelectedSlotPeriod] = React.useState<PeriodKey>("A"); // ✅ used for Top 3 clicks too
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [allPeople, setAllPeople] = React.useState<Record<string, string>>({});
+  const [loading, setLoading] = React.useState(true);
 
-  const periodData = React.useMemo(() => {
-    return (
-      MOCK.periods.find((p) => p.period === selectedPeriod) ??
-      ({ period: selectedPeriod, slots: buildHalfSlots(selectedPeriod) } satisfies PeriodAvailability)
-    );
-  }, [selectedPeriod]);
-
-  const periodRangeLabel = React.useMemo(() => {
-    const r = PERIOD_RANGES[selectedPeriod];
-    return formatRange(r.start, r.end);
-  }, [selectedPeriod]);
-
-  // =========================
-  // ✅ Top 3 Available Meeting Times
-  // =========================
-  const top3: RankedSlot[] = React.useMemo(() => {
-    const all: RankedSlot[] = [];
-    for (const p of MOCK.periods) {
-      for (const s of p.slots) {
-        all.push({ ...s, period: p.period });
+  // Load all people names and their user IDs
+  React.useEffect(() => {
+    const namesRef = ref(database, 'names');
+    const unsubscribe = onValue(namesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const namesData = snapshot.val();
+        const peopleMap: Record<string, string> = {};
+        Object.entries(namesData).forEach(([userId, data]: [string, any]) => {
+          peopleMap[data.name] = userId;
+        });
+        setAllPeople(peopleMap);
+        console.log('People loaded:', peopleMap);
       }
-    }
-    // Sort earliest-first
-    all.sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin || a.period.localeCompare(b.period));
-    return all.slice(0, 3);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const headerTitle = `${MOCK.lastName} Available Times - ${MOCK.dayLabel}`;
+  // Load my frees
+  React.useEffect(() => {
+    const freesRef = ref(database, 'freeTimes/user1');
+    const unsubscribe = onValue(freesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const periods = snapshot.val().periods || [];
+        setMyFrees(periods);
+        console.log('My frees:', periods);
+      } else {
+        console.log('No frees found for user1');
+      }
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-  function openConfirm(period: PeriodKey, slot: TimeSlot) {
-    setSelectedSlotPeriod(period);
-    setSelectedSlot(slot);
-    setConfirmOpen(true);
+  // Load their frees
+  React.useEffect(() => {
+    if (!selectedPersonName || !allPeople[selectedPersonName]) {
+      console.log('Waiting for person selection or people data');
+      return;
+    }
+    
+    const theirUserId = allPeople[selectedPersonName];
+    console.log(`Loading frees for ${selectedPersonName} (${theirUserId})`);
+    
+    const freesRef = ref(database, `freeTimes/${theirUserId}`);
+    const unsubscribe = onValue(freesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const periods = snapshot.val().periods || [];
+        setTheirFrees(periods);
+        console.log(`${selectedPersonName}'s frees:`, periods);
+      } else {
+        console.log(`No frees found for ${selectedPersonName}`);
+        setTheirFrees([]);
+      }
+    });
+    return () => unsubscribe();
+  }, [selectedPersonName, allPeople]);
+
+  // Find ALL common free slots across all days - for Top 3
+  const allCommonFreeSlots = React.useMemo(() => {
+    const slots: TimeSlot[] = [];
+    
+    // Loop through all days
+    for (let day = 1; day <= 10; day++) {
+      const myDayFrees = myFrees.filter(f => f.day === day);
+      const theirDayFrees = theirFrees.filter(f => f.day === day);
+      
+      // For each of my free periods
+      myDayFrees.forEach(myFree => {
+        const myStart = timeStringToMinutes(myFree.start);
+        const myEnd = timeStringToMinutes(myFree.end);
+        
+        // Check each of their free periods
+        theirDayFrees.forEach(theirFree => {
+          const theirStart = timeStringToMinutes(theirFree.start);
+          const theirEnd = timeStringToMinutes(theirFree.end);
+          
+          // Find overlap
+          const overlapStart = Math.max(myStart, theirStart);
+          const overlapEnd = Math.min(myEnd, theirEnd);
+          
+          // If there's an overlap
+          if (overlapStart < overlapEnd) {
+            const duration = overlapEnd - overlapStart;
+            slots.push({
+              id: `${day}-${overlapStart}-${overlapEnd}`,
+              startMin: overlapStart,
+              endMin: overlapEnd,
+              label: formatRange(overlapStart, overlapEnd),
+              day: day,
+              duration: duration,
+            });
+          }
+        });
+      });
+    }
+    
+    // Sort by duration (longest first), take top 3
+    const top3Longest = slots.sort((a, b) => b.duration - a.duration).slice(0, 3);
+    console.log('Top 3 longest slots across all days:', top3Longest);
+    
+    return top3Longest;
+  }, [myFrees, theirFrees]);
+
+  // Find intersection of free times for selected day only
+  const dayCommonFreeSlots = React.useMemo(() => {
+    const myDayFrees = myFrees.filter(f => f.day === selectedDay);
+    const theirDayFrees = theirFrees.filter(f => f.day === selectedDay);
+    
+    console.log(`Day ${selectedDay} - My frees:`, myDayFrees);
+    console.log(`Day ${selectedDay} - Their frees:`, theirDayFrees);
+    
+    const slots: TimeSlot[] = [];
+    
+    // For each of my free periods
+    myDayFrees.forEach(myFree => {
+      const myStart = timeStringToMinutes(myFree.start);
+      const myEnd = timeStringToMinutes(myFree.end);
+      
+      // Check each of their free periods
+      theirDayFrees.forEach(theirFree => {
+        const theirStart = timeStringToMinutes(theirFree.start);
+        const theirEnd = timeStringToMinutes(theirFree.end);
+        
+        // Find overlap
+        const overlapStart = Math.max(myStart, theirStart);
+        const overlapEnd = Math.min(myEnd, theirEnd);
+        
+        // If there's an overlap
+        if (overlapStart < overlapEnd) {
+          const duration = overlapEnd - overlapStart;
+          slots.push({
+            id: `${selectedDay}-${overlapStart}-${overlapEnd}`,
+            startMin: overlapStart,
+            endMin: overlapEnd,
+            label: formatRange(overlapStart, overlapEnd),
+            day: selectedDay,
+            duration: duration,
+          });
+        }
+      });
+    });
+    
+    // Sort chronologically
+    const chronological = slots.sort((a, b) => a.startMin - b.startMin);
+    console.log('Day slots (chronological):', chronological);
+    
+    return chronological;
+  }, [myFrees, theirFrees, selectedDay]);
+
+  const headerTitle = `Meeting Times with ${selectedPersonName || 'Unknown'} - Day ${selectedDay}`;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full bg-white p-6 flex items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   return (
@@ -187,7 +265,14 @@ export default function DavidsTaskPage() {
           <h1 className="text-lg font-semibold">{headerTitle}</h1>
         </div>
 
-        {/* ✅ Top 3 panel */}
+        {/* Debug info */}
+        <div className="mb-3 text-xs" style={{ color: "#888" }}>
+          Selected person: {selectedPersonName || 'None'} | 
+          My frees: {myFrees.length} | 
+          Their frees: {theirFrees.length}
+        </div>
+
+        {/* Top 3 Available Meeting Times */}
         <div
           className="mb-3 rounded-lg border p-3"
           style={{ borderColor: COLORS.maroon, boxShadow: "0 1px 0 rgba(0,0,0,0.03)" }}
@@ -196,15 +281,15 @@ export default function DavidsTaskPage() {
             Top 3 Available Meeting Times
           </div>
 
-          {top3.length === 0 ? (
+          {allCommonFreeSlots.length === 0 ? (
             <div className="text-sm" style={{ color: "#5a5a5a" }}>
-              No available meeting times.
+              No common available meeting times.
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {top3.map((s) => (
+              {allCommonFreeSlots.map((s) => (
                 <button
-                  key={`top-${s.period}-${s.id}`}
+                  key={`top-${s.id}`}
                   type="button"
                   className="rounded-md border px-3 py-2 text-left text-sm font-medium"
                   style={{
@@ -213,38 +298,42 @@ export default function DavidsTaskPage() {
                     color: COLORS.text,
                   }}
                   onClick={() => {
-                    // jump the UI to that period too
-                    setSelectedPeriod(s.period);
-                    openConfirm(s.period, s);
+                    setSelectedDay(s.day);
+                    setSelectedSlot(s);
+                    setConfirmOpen(true);
                   }}
                 >
                   <div className="text-xs font-semibold" style={{ color: "#5a5a5a" }}>
-                    {s.period} Period
+                    Day {s.day}
                   </div>
                   <div>{s.label}</div>
+                  <div className="text-xs" style={{ color: "#5a5a5a" }}>
+                    ({s.duration} min)
+                  </div>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Main card */}
+        {/* Card */}
         <div
           className="rounded-lg border p-3"
-          style={{ borderColor: COLORS.maroon, boxShadow: "0 1px 0 rgba(0,0,0,0.03)" }}
+          style={{
+            borderColor: COLORS.maroon,
+            boxShadow: "0 1px 0 rgba(0,0,0,0.03)",
+          }}
         >
           <div className="grid grid-cols-12 gap-3">
-            {/* Period selector */}
+            {/* Day selector */}
             <div className="col-span-12 sm:col-span-4">
               <div className="rounded-md border" style={{ borderColor: COLORS.maroon }}>
-                {periodKeys.map((p, idx) => {
-                  const active = p === selectedPeriod;
-                  const r = PERIOD_RANGES[p];
-                  const label = `${p} Period (${formatRange(r.start, r.end)})`;
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((day, idx) => {
+                  const active = day === selectedDay;
 
                   return (
                     <button
-                      key={p}
+                      key={day}
                       type="button"
                       className={classNames(
                         "w-full text-left",
@@ -259,39 +348,48 @@ export default function DavidsTaskPage() {
                         color: active ? "#ffffff" : COLORS.text,
                       }}
                       onClick={() => {
-                        setSelectedPeriod(p);
+                        setSelectedDay(day);
                         setSelectedSlot(null);
                       }}
                     >
-                      {label}
+                      Day {day}
                     </button>
                   );
                 })}
-              </div>
-
-              <div className="mt-2 text-xs" style={{ color: "#5a5a5a" }}>
-                Break: 10:00 AM - 10:15 AM
               </div>
             </div>
 
             {/* Availability list */}
             <div className="col-span-12 sm:col-span-8">
               <p className="mb-2 text-xs leading-4" style={{ color: "#5a5a5a" }}>
-                {selectedPeriod} Period ({periodRangeLabel}) — select a time to request a meeting with {MOCK.teacherDisplay}.
+                All common free times on Day {selectedDay} with {selectedPersonName}
               </p>
 
               <div className="space-y-2">
-                {periodData.slots.map((slot) => (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    className="w-full rounded-md border px-3 py-2 text-left text-sm font-medium"
-                    style={{ borderColor: COLORS.midGray, background: COLORS.lightGray, color: COLORS.text }}
-                    onClick={() => openConfirm(selectedPeriod, slot)}
-                  >
-                    {slot.label}
-                  </button>
-                ))}
+                {dayCommonFreeSlots.length > 0 ? (
+                  dayCommonFreeSlots.map((slot) => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      className="w-full rounded-md border px-3 py-2 text-left text-sm font-medium"
+                      style={{
+                        borderColor: COLORS.midGray,
+                        background: COLORS.lightGray,
+                        color: COLORS.text,
+                      }}
+                      onClick={() => {
+                        setSelectedSlot(slot);
+                        setConfirmOpen(true);
+                      }}
+                    >
+                      {slot.label} ({slot.duration} min)
+                    </button>
+                  ))
+                ) : (
+                  <p className="text-sm" style={{ color: "#5a5a5a" }}>
+                    No common free times on this day.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -299,12 +397,17 @@ export default function DavidsTaskPage() {
       </div>
 
       {/* Confirm modal */}
-      <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)}>
+      <Modal
+        open={confirmOpen}
+        onClose={() => {
+          setConfirmOpen(false);
+        }}
+      >
         <div className="rounded-lg bg-white p-6 shadow-xl">
-          <h2 className="mb-3 text-xl font-semibold">Confirm?</h2>
+          <h2 className="mb-3 text-xl font-semibold">Confirm Meeting?</h2>
 
           <p className="mb-6 text-sm">
-            {selectedSlotPeriod} Period{selectedSlot ? `: ${selectedSlot.label}` : ""} with {MOCK.teacherDisplay}
+            Day {selectedDay}: {selectedSlot ? selectedSlot.label : ""} with {selectedPersonName}
           </p>
 
           <div className="flex items-center justify-start gap-4">
@@ -313,7 +416,7 @@ export default function DavidsTaskPage() {
               className="rounded-md px-6 py-2 text-sm font-semibold text-white"
               style={{ background: COLORS.maroon }}
               onClick={() => {
-                // TODO: hook into your scheduling request flow
+                alert('Meeting confirmed!');
                 setConfirmOpen(false);
               }}
             >
@@ -323,7 +426,9 @@ export default function DavidsTaskPage() {
               type="button"
               className="rounded-md px-6 py-2 text-sm font-semibold text-white"
               style={{ background: COLORS.maroon }}
-              onClick={() => setConfirmOpen(false)}
+              onClick={() => {
+                setConfirmOpen(false);
+              }}
             >
               No
             </button>

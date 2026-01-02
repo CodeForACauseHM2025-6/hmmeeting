@@ -31,6 +31,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-semibold mb-4 text-center">Welcome</h1>
         {errorMessage && <p className="text-red-500 mb-4 text-center">{errorMessage}</p>}
         <GoogleLogin
+            //clientId = {process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID}
             onSuccess={() => signIn("google", { callbackUrl: "/dashboard" })}
             onError={() => console.error('Login failed')}
             theme="outline"

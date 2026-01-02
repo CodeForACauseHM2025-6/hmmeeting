@@ -54,7 +54,7 @@ export default function DashboardPage() {
     return <div>Loading...</div>;
   }
   if (!user) {
-    router.push("/profilepage");
+    router.push("/account/setup");
     return;
     
   }

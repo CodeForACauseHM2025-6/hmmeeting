@@ -1,16 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { database } from '@/firebase';
+import { ref, onValue } from 'firebase/database';
 
 export default function AllPeoplePage() {
   const [open, setOpen] = useState(false);
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [people, setPeople] = useState<string[]>([]);
 
   const router = useRouter();
 
-  const people = ["Person 1", "Person 4", "Person 6", "Person 7"];
+  // Load people from Firebase
+  useEffect(() => {
+    const namesRef = ref(database, 'names');
+    const unsubscribe = onValue(namesRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const namesData = snapshot.val();
+        // Extract all names from the database
+        const namesList = Object.values(namesData).map((entry: any) => entry.name);
+        setPeople(namesList);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const filteredPeople = people.filter((p) =>
     p.toLowerCase().includes(searchTerm.toLowerCase())
@@ -92,7 +108,13 @@ export default function AllPeoplePage() {
       {/* Action buttons */}
       <div className="mt-8 flex flex-col items-center gap-3">
         <button
-        onClick = {() => router.push("/meetingtimes")}
+          onClick={() => {
+            if (!selectedPerson) {
+              alert('Please select a person first');
+              return;
+            }
+            router.push(`/meetingtimes?person=${encodeURIComponent(selectedPerson)}`);
+          }}
           className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors w-fit"
         >
           Confirm
@@ -106,7 +128,7 @@ export default function AllPeoplePage() {
         </button>
 
         <button
-          onClick={() => router.push("/savedpeople")}
+          onClick={() => router.push("/profilepage")}
           className="text-sm text-white underline hover:text-gray-300 transition-colors"
         >
           Back
