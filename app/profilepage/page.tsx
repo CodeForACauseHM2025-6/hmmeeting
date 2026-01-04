@@ -3,7 +3,7 @@
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import { useRouter } from "next/navigation";
 import { database } from '@/firebase';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, remove, push, set, get } from 'firebase/database';
 
 interface Meeting {
   time: string;
@@ -17,11 +17,15 @@ type FreePeriod = {
 };
 
 export default function ProfilePage() {
+  const currentUserId = 'user1'; // Change to 'user2' on second device
+  
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [studentName, setStudentName] = useState("Brighten Sun");
   const [bio, setBio] = useState("No Bio Yet");
   const [avatarBg, setAvatarBg] = useState<string>('#8B5CF6');
   const [frees, setFrees] = useState<FreePeriod[]>([]);
+  const [pendingMeetings, setPendingMeetings] = useState<any[]>([]);
+  const [confirmedMeetings, setConfirmedMeetings] = useState<any[]>([]);
   const router = useRouter();
 
   const createEmptySchedule = () => {
@@ -29,11 +33,6 @@ export default function ProfilePage() {
   };
 
   const [schedule, setSchedule] = useState<string[][]>(() => createEmptySchedule());
-
-  const [upcomingMeetings, setUpcomingMeetings] = useState<Meeting[]>([
-    { time: "Tomorrow 3:00 pm", with: "Mr. Johnson - Math Help" },
-    { time: "Friday 10:00 am", with: "College Advisor" },
-  ]);
 
   const periodTimes = [
     "8:25 am",
@@ -51,14 +50,14 @@ export default function ProfilePage() {
 
   // Load Firebase data
   useEffect(() => {
-    const freesRef = ref(database, 'freeTimes/user1');
+    const freesRef = ref(database, `freeTimes/${currentUserId}`);
     const unsubscribeFrees = onValue(freesRef, (snapshot) => {
       if (snapshot.exists()) {
         setFrees(snapshot.val().periods || []);
       }
     });
 
-    const nameRef = ref(database, 'names/user1');
+    const nameRef = ref(database, `names/${currentUserId}`);
     const unsubscribeName = onValue(nameRef, (snapshot) => {
       if (snapshot.exists()) {
         const firebaseName = snapshot.val().name;
@@ -68,22 +67,52 @@ export default function ProfilePage() {
       }
     });
 
+    // Load pending meetings
+    const pendingRef = ref(database, `pendingMeetings/${currentUserId}`);
+    const unsubscribePending = onValue(pendingRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const arr = Object.entries(data).map(([key, value]: [string, any]) => ({
+          id: key,
+          ...value
+        }));
+        setPendingMeetings(arr);
+      } else {
+        setPendingMeetings([]);
+      }
+    });
+
+    // Load confirmed meetings
+    const confirmedRef = ref(database, `confirmedMeetings/${currentUserId}`);
+    const unsubscribeConfirmed = onValue(confirmedRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const arr = Object.entries(data).map(([key, value]: [string, any]) => ({
+          id: key,
+          ...value
+        }));
+        setConfirmedMeetings(arr);
+      } else {
+        setConfirmedMeetings([]);
+      }
+    });
+
     return () => {
       unsubscribeFrees();
       unsubscribeName();
+      unsubscribePending();
+      unsubscribeConfirmed();
     };
-  }, []);
+  }, [currentUserId]);
 
   // Load from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('profileData');
     if (saved) {
       const data = JSON.parse(saved);
-      setStudentName(data.studentName ?? "Brighten Sun");
       setBio(data.bio ?? "No Bio Yet");
       setProfileImage(data.profileImage ?? null);
       setSchedule(data.schedule ?? createEmptySchedule());
-      setUpcomingMeetings(data.upcomingMeetings ?? []);
       setAvatarBg(data.avatarBg ?? '#8B5CF6');
     } else {
       const newColor = ['#8B5CF6', '#EC4899', '#10B981', '#F59E0B', '#3B82F6', '#EF4444', '#6366F1', '#14B8A6'][Math.floor(Math.random() * 8)];
@@ -93,15 +122,13 @@ export default function ProfilePage() {
 
   useEffect(() => {
     const data = {
-      studentName,
       bio,
       profileImage,
       schedule,
-      upcomingMeetings,
       avatarBg,
     };
     localStorage.setItem('profileData', JSON.stringify(data));
-  }, [studentName, bio, profileImage, schedule, upcomingMeetings, avatarBg]);
+  }, [bio, profileImage, schedule, avatarBg]);
 
   const handleImageUpload = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -113,14 +140,39 @@ export default function ProfilePage() {
 
   const avatarLetter = studentName.charAt(0).toUpperCase() || '?';
 
-  const updateMeeting = (index: number, field: 'time' | 'with', value: string) => {
-    const newMeetings = [...upcomingMeetings];
-    newMeetings[index][field] = value;
-    setUpcomingMeetings(newMeetings);
-  };
+  const confirmMeeting = async (meetingId: string, meeting: any) => {
+    try {
+      const otherPersonName = meeting.withName;
+      const otherPersonUserId = meeting.withUserId;
+      
+      // Remove from sender's pending meetings
+      await remove(ref(database, `pendingMeetings/${currentUserId}/${meetingId}`));
 
-  const removeMeeting = (index: number) => {
-    setUpcomingMeetings(upcomingMeetings.filter((_, i) => i !== index));
+      // Add to confirmed for both users
+      const confirmedData = {
+        ...meeting,
+        status: 'confirmed',
+        confirmedAt: Date.now(),
+        confirmedBy: currentUserId
+      };
+
+      const myConfirmedRef = push(ref(database, `confirmedMeetings/${currentUserId}`));
+      await set(myConfirmedRef, {
+        ...confirmedData,
+        with: otherPersonName
+      });
+      
+      const theirConfirmedRef = push(ref(database, `confirmedMeetings/${otherPersonUserId}`));
+      await set(theirConfirmedRef, {
+        ...confirmedData,
+        with: studentName
+      });
+
+      alert(`Meeting with ${otherPersonName} confirmed!`);
+    } catch (error) {
+      console.error('Error confirming meeting:', error);
+      alert('Failed to confirm meeting');
+    }
   };
 
   // Helper function to convert time string to minutes since midnight
@@ -332,43 +384,81 @@ export default function ProfilePage() {
         <span style={{ fontSize: '20px' }}>▼</span>
       </div>
 
-      {/* Upcoming Meetings - Editable */}
+      {/* Debug Info */}
+      <div style={{ backgroundColor: '#f0f0f0', padding: '10px', borderRadius: '4px', marginBottom: '20px', fontSize: '12px' }}>
+        <strong>Debug Info:</strong><br />
+        Current User ID: {currentUserId}<br />
+        Pending Meetings Count: {pendingMeetings.length}<br />
+        Pending Data: {JSON.stringify(pendingMeetings, null, 2)}<br />
+        Confirmed Meetings Count: {confirmedMeetings.length}
+      </div>
+
+      {/* Pending Meetings */}
       <div style={{ marginBottom: '40px' }}>
         <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>
-          Upcoming Meetings
+          Pending Meetings ({pendingMeetings.length})
         </h3>
-        <div style={{ backgroundColor: '#f9f9f9', padding: '16px', borderRadius: '8px' }}>
-          {upcomingMeetings.map((meeting, i) => (
-            <div key={i} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center' }}>
-              <input
-                type="text"
-                value={meeting.time}
-                onChange={(e) => updateMeeting(i, 'time', e.target.value)}
-                placeholder="Time (e.g. Tomorrow 3pm)"
-                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-              />
-              <input
-                type="text"
-                value={meeting.with}
-                onChange={(e) => updateMeeting(i, 'with', e.target.value)}
-                placeholder="With whom / purpose"
-                style={{ flex: 2, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
-              />
-              <button
-                onClick={() => removeMeeting(i)}
-                style={{ padding: '8px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px' }}
-              >
-                ×
-              </button>
+        <div style={{ backgroundColor: '#fff3cd', padding: '16px', borderRadius: '8px', border: '1px solid #ffc107' }}>
+          {pendingMeetings.length > 0 ? (
+            pendingMeetings.map((meeting) => {
+              return (
+                <div key={meeting.id} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center', backgroundColor: 'white', padding: '12px', borderRadius: '4px' }}>
+                  <div style={{ flex: 1 }}>
+                    <strong>Meeting with {meeting.withName}</strong>
+                    <div style={{ fontSize: '14px', color: '#666' }}>
+                      Day {meeting.day}, {meeting.time}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#999' }}>
+                      Waiting for confirmation
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => confirmMeeting(meeting.id, meeting)}
+                    style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: '500' }}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+              No pending meetings
             </div>
-          ))}
-          <button
-            onClick={() => router.push("/allpeople")}
-            style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', marginTop: '10px' }}
-          >
-            + Add Meeting
-          </button>
+          )}
         </div>
+      </div>
+
+      {/* Confirmed Meetings */}
+      <div style={{ marginBottom: '40px' }}>
+        <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '12px' }}>
+          Confirmed Meetings
+        </h3>
+        <div style={{ backgroundColor: '#d1fae5', padding: '16px', borderRadius: '8px', border: '1px solid #10b981' }}>
+          {confirmedMeetings.length > 0 ? (
+            confirmedMeetings.map((meeting) => (
+              <div key={meeting.id} style={{ display: 'flex', gap: '10px', marginBottom: '10px', alignItems: 'center', backgroundColor: 'white', padding: '12px', borderRadius: '4px' }}>
+                <div style={{ flex: 1 }}>
+                  <strong>Meeting with {meeting.with}</strong>
+                  <div style={{ fontSize: '14px', color: '#666' }}>
+                    Day {meeting.day}, {meeting.time}
+                  </div>
+                </div>
+                <span style={{ color: '#10b981', fontWeight: '500' }}>✓ Confirmed</span>
+              </div>
+            ))
+          ) : (
+            <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+              No confirmed meetings yet
+            </div>
+          )}
+        </div>
+        <button
+          onClick={() => router.push("/allpeople")}
+          style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', marginTop: '10px', width: '100%' }}
+        >
+          + Schedule New Meeting
+        </button>
       </div>
 
       {/* Current Schedule */}

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { database } from '@/firebase';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, push, set } from 'firebase/database';
 import { useSearchParams } from 'next/navigation';
 
 type TimeSlot = {
@@ -81,6 +81,7 @@ function Modal({
 export default function MeetingTimesPage() {
   const searchParams = useSearchParams();
   const selectedPersonName = searchParams.get('person');
+  const currentUserId = 'user1'; // Change to 'user2' on your second device for testing
   
   const [myFrees, setMyFrees] = React.useState<FreePeriod[]>([]);
   const [theirFrees, setTheirFrees] = React.useState<FreePeriod[]>([]);
@@ -89,39 +90,51 @@ export default function MeetingTimesPage() {
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [allPeople, setAllPeople] = React.useState<Record<string, string>>({});
   const [loading, setLoading] = React.useState(true);
+  const [userEmail, setUserEmail] = React.useState('');
+  const [userName, setUserName] = React.useState('');
+  const [allEmails, setAllEmails] = React.useState<Record<string, string>>({});
 
-  // Load all people names and their user IDs
+  // Load all people names, emails, and their user IDs
   React.useEffect(() => {
     const namesRef = ref(database, 'names');
     const unsubscribe = onValue(namesRef, (snapshot) => {
       if (snapshot.exists()) {
         const namesData = snapshot.val();
         const peopleMap: Record<string, string> = {};
+        const emailsMap: Record<string, string> = {};
         Object.entries(namesData).forEach(([userId, data]: [string, any]) => {
           peopleMap[data.name] = userId;
+          emailsMap[data.name] = data.email || '';
+          // Get current user's info
+          if (userId === currentUserId) {
+            setUserName(data.name || '');
+            setUserEmail(data.email || '');
+          }
         });
         setAllPeople(peopleMap);
+        setAllEmails(emailsMap);
         console.log('People loaded:', peopleMap);
+        console.log('Emails loaded:', emailsMap);
       }
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentUserId]);
 
   // Load my frees
   React.useEffect(() => {
-    const freesRef = ref(database, 'freeTimes/user1');
+    const freesRef = ref(database, `freeTimes/${currentUserId}`);
     const unsubscribe = onValue(freesRef, (snapshot) => {
       if (snapshot.exists()) {
         const periods = snapshot.val().periods || [];
         setMyFrees(periods);
         console.log('My frees:', periods);
       } else {
-        console.log('No frees found for user1');
+        console.log(`No frees found for ${currentUserId}`);
       }
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [currentUserId]);
 
   // Load their frees
   React.useEffect(() => {
@@ -269,7 +282,8 @@ export default function MeetingTimesPage() {
         <div className="mb-3 text-xs" style={{ color: "#888" }}>
           Selected person: {selectedPersonName || 'None'} | 
           My frees: {myFrees.length} | 
-          Their frees: {theirFrees.length}
+          Their frees: {theirFrees.length} |
+          My email: {userEmail || 'Not set'}
         </div>
 
         {/* Top 3 Available Meeting Times */}
@@ -404,10 +418,14 @@ export default function MeetingTimesPage() {
         }}
       >
         <div className="rounded-lg bg-white p-6 shadow-xl">
-          <h2 className="mb-3 text-xl font-semibold">Confirm Meeting?</h2>
+          <h2 className="mb-3 text-xl font-semibold">Schedule Meeting?</h2>
 
           <p className="mb-6 text-sm">
-            Day {selectedDay}: {selectedSlot ? selectedSlot.label : ""} with {selectedPersonName}
+            Schedule a meeting with {selectedPersonName} for Day {selectedDay}: {selectedSlot ? selectedSlot.label : ""}?
+          </p>
+
+          <p className="mb-6 text-xs" style={{ color: "#666" }}>
+            You will receive a confirmation email, and {selectedPersonName} will be notified.
           </p>
 
           <div className="flex items-center justify-start gap-4">
@@ -415,12 +433,81 @@ export default function MeetingTimesPage() {
               type="button"
               className="rounded-md px-6 py-2 text-sm font-semibold text-white"
               style={{ background: COLORS.maroon }}
-              onClick={() => {
-                alert('Meeting confirmed!');
+              onClick={async () => {
+                if (!userEmail) {
+                  alert('Please set up your email in your profile first!');
+                  return;
+                }
+
+                const personEmail = selectedPersonName ? allEmails[selectedPersonName] : '';
+                if (!personEmail) {
+                  alert('The selected person does not have an email set up!');
+                  return;
+                }
+
+                const theirUserId = selectedPersonName ? allPeople[selectedPersonName] : null;
+                if (!theirUserId) {
+                  alert('Could not find user ID!');
+                  return;
+                }
+
+                try {
+                  console.log('Attempting to save meeting...');
+                  console.log('Current user:', currentUserId);
+                  console.log('Other user:', theirUserId);
+                  
+                  const meetingData = {
+                    withName: selectedPersonName,
+                    withUserId: theirUserId,
+                    fromName: userName,
+                    fromUserId: currentUserId,
+                    day: selectedDay,
+                    time: selectedSlot?.label,
+                    status: 'pending',
+                    timestamp: Date.now()
+                  };
+
+                  console.log('Meeting data:', meetingData);
+
+                  // Save to both users' pending meetings
+                  const myPendingRef = push(ref(database, `pendingMeetings/${currentUserId}`));
+                  await set(myPendingRef, meetingData);
+                  console.log('Saved to my pending meetings');
+
+                  const theirPendingRef = push(ref(database, `pendingMeetings/${theirUserId}`));
+                  await set(theirPendingRef, meetingData);
+                  console.log('Saved to their pending meetings');
+
+                  // Send both confirmation and notification emails
+                  const response = await fetch('/api/send-meeting-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      personName: selectedPersonName,
+                      personEmail: personEmail,
+                      day: selectedDay,
+                      timeLabel: selectedSlot?.label,
+                      userEmail: userEmail,
+                      userName: userName || 'Student'
+                    })
+                  });
+
+                  if (response.ok) {
+                    console.log('Emails sent successfully');
+                    alert(`Meeting request sent!\n\nYou will receive a confirmation email, and ${selectedPersonName} will be notified.`);
+                  } else {
+                    console.log('Email send failed');
+                    alert('Request saved but failed to send emails.');
+                  }
+                } catch (error) {
+                  console.error('Error:', error);
+                  alert('Failed to send meeting request: ' + error);
+                }
+                
                 setConfirmOpen(false);
               }}
             >
-              Yes
+              Yes, Schedule
             </button>
             <button
               type="button"
@@ -430,7 +517,7 @@ export default function MeetingTimesPage() {
                 setConfirmOpen(false);
               }}
             >
-              No
+              Cancel
             </button>
           </div>
         </div>
