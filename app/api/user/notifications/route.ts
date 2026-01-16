@@ -43,7 +43,7 @@ export async function GET() {
       where: {
         teacherId,
         OR: [
-          { status: { in: ["PENDING", "CONFIRMED", "DECLINED"] } },
+          { status: { in: ["PENDING", "CONFIRMED", "DECLINED", "COMPLETED"] } },
           { status: "CANCELLED", studentCancelled: true },
         ],
       },
@@ -60,6 +60,8 @@ export async function GET() {
         message = `Meeting confirmed with ${appointment.student.fullName}`;
       } else if (appointment.status === "DECLINED") {
         message = `Meeting declined with ${appointment.student.fullName}`;
+      } else if (appointment.status === "COMPLETED") {
+        message = `Meeting completed with ${appointment.student.fullName}`;
       } else if (appointment.status === "CANCELLED") {
         message = `Meeting cancelled with ${appointment.student.fullName}`;
       }
@@ -81,7 +83,7 @@ export async function GET() {
     where: {
       studentId: user.id,
       OR: [
-        { status: { in: ["CONFIRMED", "DECLINED"] } },
+        { status: { in: ["CONFIRMED", "DECLINED", "COMPLETED"] } },
         { status: "CANCELLED", studentCancelled: false },
       ],
     },
@@ -96,6 +98,8 @@ export async function GET() {
       message = `Meeting confirmed with ${appointment.teacher.user.fullName}`;
     } else if (appointment.status === "DECLINED") {
       message = `Meeting declined by ${appointment.teacher.user.fullName}`;
+    } else if (appointment.status === "COMPLETED") {
+      message = `Meeting completed with ${appointment.teacher.user.fullName}`;
     } else if (appointment.status === "CANCELLED") {
       message = `Meeting cancelled with ${appointment.teacher.user.fullName}`;
     }

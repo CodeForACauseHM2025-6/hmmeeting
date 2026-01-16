@@ -60,6 +60,7 @@ export async function GET() {
         day: appointment.day,
         period: appointment.period,
         status: appointment.status,
+        completedBy: appointment.completedBy,
         room: appointment.room,
         studentNote: appointment.studentNote,
         teacherNote: appointment.teacherNote,
@@ -91,6 +92,7 @@ export async function GET() {
       day: appointment.day,
       period: appointment.period,
       status: appointment.status,
+      completedBy: appointment.completedBy,
       room: appointment.room,
       studentNote: appointment.studentNote,
       teacherNote: appointment.teacherNote,
@@ -152,7 +154,7 @@ export async function POST(request: Request) {
   }
 
   const teacherAppointments = await prisma.appointment.findMany({
-    where: { teacherId, day, status: { not: "CANCELLED" } },
+    where: { teacherId, day, status: { in: ["PENDING", "CONFIRMED"] } },
   });
 
   if (teacherAppointments.some((appointment) => appointment.period === period)) {
@@ -160,7 +162,7 @@ export async function POST(request: Request) {
   }
 
   const studentAppointments = await prisma.appointment.findMany({
-    where: { studentId: student.id, day, status: { not: "CANCELLED" } },
+    where: { studentId: student.id, day, status: { in: ["PENDING", "CONFIRMED"] } },
   });
 
   if (studentAppointments.some((appointment) => appointment.period === period)) {
@@ -279,6 +281,35 @@ export async function PATCH(request: Request) {
     return Response.json(updated);
   }
 
+  if (action === "complete") {
+    if (appointment.status !== "CONFIRMED") {
+      return new Response("Only confirmed meetings can be completed", { status: 400 });
+    }
+
+    if (resolvedRole === "STUDENT") {
+      if (appointment.studentId !== user.id) {
+        return new Response("Forbidden", { status: 403 });
+      }
+    } else if (resolvedRole === "TEACHER") {
+      const teacherId = await resolveTeacherId();
+      if (appointment.teacherId !== teacherId) {
+        return new Response("Forbidden", { status: 403 });
+      }
+    } else {
+      return new Response("Forbidden", { status: 403 });
+    }
+
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: {
+        status: "COMPLETED",
+        completedBy: resolvedRole === "STUDENT" ? "STUDENT" : "TEACHER",
+      },
+    });
+
+    return Response.json(updated);
+  }
+
   if (action === "cancel") {
     if (resolvedRole === "STUDENT") {
       if (appointment.studentId !== user.id) {
@@ -306,28 +337,55 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "acknowledge") {
-    if (appointment.status !== "CANCELLED") {
-      return new Response("Only cancelled meetings can be acknowledged", { status: 400 });
-    }
-
-    if (resolvedRole === "STUDENT") {
-      if (appointment.studentId !== user.id || appointment.studentCancelled) {
-        return new Response("Forbidden", { status: 403 });
+    if (appointment.status === "CANCELLED") {
+      if (resolvedRole === "STUDENT") {
+        if (appointment.studentId !== user.id || appointment.studentCancelled) {
+          return new Response("Forbidden", { status: 403 });
+        }
+        const deleted = await prisma.appointment.delete({ where: { id } });
+        return Response.json(deleted);
       }
-      const deleted = await prisma.appointment.delete({ where: { id } });
-      return Response.json(deleted);
-    }
 
-    if (resolvedRole === "TEACHER") {
-      const teacherId = await resolveTeacherId();
-      if (appointment.teacherId !== teacherId || !appointment.studentCancelled) {
-        return new Response("Forbidden", { status: 403 });
+      if (resolvedRole === "TEACHER") {
+        const teacherId = await resolveTeacherId();
+        if (appointment.teacherId !== teacherId || !appointment.studentCancelled) {
+          return new Response("Forbidden", { status: 403 });
+        }
+        const deleted = await prisma.appointment.delete({ where: { id } });
+        return Response.json(deleted);
       }
-      const deleted = await prisma.appointment.delete({ where: { id } });
-      return Response.json(deleted);
+
+      return new Response("Forbidden", { status: 403 });
     }
 
-    return new Response("Forbidden", { status: 403 });
+    if (appointment.status === "COMPLETED") {
+      if (!appointment.completedBy) {
+        return new Response("Missing completion metadata", { status: 400 });
+      }
+
+      if (resolvedRole === "STUDENT") {
+        if (appointment.studentId !== user.id || appointment.completedBy !== "TEACHER") {
+          return new Response("Forbidden", { status: 403 });
+        }
+        const deleted = await prisma.appointment.delete({ where: { id } });
+        return Response.json(deleted);
+      }
+
+      if (resolvedRole === "TEACHER") {
+        const teacherId = await resolveTeacherId();
+        if (appointment.teacherId !== teacherId || appointment.completedBy !== "STUDENT") {
+          return new Response("Forbidden", { status: 403 });
+        }
+        const deleted = await prisma.appointment.delete({ where: { id } });
+        return Response.json(deleted);
+      }
+
+      return new Response("Forbidden", { status: 403 });
+    }
+
+    return new Response("Only cancelled or completed meetings can be acknowledged", {
+      status: 400,
+    });
   }
 
   return new Response("Invalid action", { status: 400 });

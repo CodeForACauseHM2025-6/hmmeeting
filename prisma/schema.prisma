@@ -46,6 +46,7 @@ model Appointment {
   day       Int
   period    Period
   status    AppointmentStatus @default(PENDING)
+  completedBy CompletionActor?
   room      String?
   studentNote String?
   teacherNote String?
@@ -110,4 +111,10 @@ enum AppointmentStatus {
   CONFIRMED
   DECLINED
   CANCELLED
+  COMPLETED
+}
+
+enum CompletionActor {
+  STUDENT
+  TEACHER
 }

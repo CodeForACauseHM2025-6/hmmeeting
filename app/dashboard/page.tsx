@@ -91,6 +91,7 @@ function StudentDashboard() {
             day: number;
             period: PeriodValue;
             status: string;
+            completedBy?: "STUDENT" | "TEACHER" | null;
             teacherName: string;
             teacherEmail: string;
             room?: string | null;
@@ -149,11 +150,31 @@ function StudentDashboard() {
         setActionMessage("Booking cancelled.");
     };
 
-    const acknowledgeCancelled = async (id: string) => {
+    const completeAppointment = async (id: string) => {
         setActionMessage("");
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/cc89fe79-f21f-41c4-9836-b19789698f76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/dashboard/page.tsx:acknowledgeCancelled',message:'Student acknowledge clicked',data:{hasId:Boolean(id)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H1'})}).catch(()=>{});
-        // #endregion
+        setPendingCancelId(null);
+
+        const response = await fetch("/api/user/appointments", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, action: "complete" }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            setActionMessage(errorText || "Failed to complete meeting.");
+            return;
+        }
+
+        const updated = await response.json();
+        setAppointments((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
+        );
+        setActionMessage("Meeting marked as completed.");
+    };
+
+    const acknowledgeAppointment = async (id: string, successMessage: string) => {
+        setActionMessage("");
         const response = await fetch("/api/user/appointments", {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -162,12 +183,12 @@ function StudentDashboard() {
 
         if (!response.ok) {
             const errorText = await response.text();
-            setActionMessage(errorText || "Failed to acknowledge booking.");
+            setActionMessage(errorText || "Failed to acknowledge meeting.");
             return;
         }
 
         setAppointments((prev) => prev.filter((item) => item.id !== id));
-        setActionMessage("Cancelled booking acknowledged.");
+        setActionMessage(successMessage);
     };
 
     const scheduleByDay = useMemo(() => {
@@ -283,7 +304,9 @@ function StudentDashboard() {
                                 {appointment.status === "CANCELLED" ? (
                                     <button
                                         type="button"
-                                        onClick={() => acknowledgeCancelled(appointment.id)}
+                                        onClick={() =>
+                                            acknowledgeAppointment(appointment.id, "Cancelled booking acknowledged.")
+                                        }
                                         style={{
                                             marginTop: "8px",
                                             padding: "6px 10px",
@@ -297,6 +320,27 @@ function StudentDashboard() {
                                     >
                                         Acknowledge
                                     </button>
+                                ) : appointment.status === "COMPLETED" ? (
+                                    appointment.completedBy === "TEACHER" ? (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                acknowledgeAppointment(appointment.id, "Completed meeting acknowledged.")
+                                            }
+                                            style={{
+                                                marginTop: "8px",
+                                                padding: "6px 10px",
+                                                borderRadius: "6px",
+                                                border: "1px solid var(--primary)",
+                                                background: "#fff",
+                                                color: "var(--primary)",
+                                                cursor: "pointer",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            Acknowledge
+                                        </button>
+                                    ) : null
                                 ) : pendingCancelId === appointment.id ? (
                                     <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
                                         <button
@@ -331,22 +375,40 @@ function StudentDashboard() {
                                         </button>
                                     </div>
                                 ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => setPendingCancelId(appointment.id)}
-                                        style={{
-                                            marginTop: "8px",
-                                            padding: "6px 10px",
-                                            borderRadius: "6px",
-                                            border: "1px solid #d32f2f",
-                                            background: "#fff",
-                                            color: "#d32f2f",
-                                            cursor: "pointer",
-                                            fontWeight: 600,
-                                        }}
-                                    >
-                                        Cancel
-                                    </button>
+                                    <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+                                        {appointment.status === "CONFIRMED" && (
+                                            <button
+                                                type="button"
+                                                onClick={() => completeAppointment(appointment.id)}
+                                                style={{
+                                                    padding: "6px 10px",
+                                                    borderRadius: "6px",
+                                                    border: "1px solid var(--primary)",
+                                                    background: "var(--primary)",
+                                                    color: "#fff",
+                                                    cursor: "pointer",
+                                                    fontWeight: 600,
+                                                }}
+                                            >
+                                                Mark as completed
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={() => setPendingCancelId(appointment.id)}
+                                            style={{
+                                                padding: "6px 10px",
+                                                borderRadius: "6px",
+                                                border: "1px solid #d32f2f",
+                                                background: "#fff",
+                                                color: "#d32f2f",
+                                                cursor: "pointer",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
                                 )}
                             </li>
                         ))}
@@ -402,6 +464,7 @@ function TeacherDashboard() {
             day: number;
             period: PeriodValue;
             status: string;
+            completedBy?: "STUDENT" | "TEACHER" | null;
             studentName: string;
             studentEmail: string;
             room?: string | null;
@@ -469,7 +532,29 @@ function TeacherDashboard() {
         setActionMessage(action === "confirm" ? "Meeting accepted." : "Meeting declined.");
     };
 
-    const acknowledgeCancelled = async (id: string) => {
+    const completeAppointment = async (id: string) => {
+        setActionMessage("");
+
+        const response = await fetch("/api/user/appointments", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ id, action: "complete" }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            setActionMessage(errorText || "Failed to complete meeting.");
+            return;
+        }
+
+        const updated = await response.json();
+        setAppointments((prev) =>
+            prev.map((item) => (item.id === id ? { ...item, ...updated } : item))
+        );
+        setActionMessage("Meeting marked as completed.");
+    };
+
+    const acknowledgeAppointment = async (id: string, successMessage: string) => {
         setActionMessage("");
         const response = await fetch("/api/user/appointments", {
             method: "PATCH",
@@ -479,12 +564,12 @@ function TeacherDashboard() {
 
         if (!response.ok) {
             const errorText = await response.text();
-            setActionMessage(errorText || "Failed to acknowledge booking.");
+            setActionMessage(errorText || "Failed to acknowledge meeting.");
             return;
         }
 
         setAppointments((prev) => prev.filter((item) => item.id !== id));
-        setActionMessage("Cancelled booking acknowledged.");
+        setActionMessage(successMessage);
     };
 
     return (
@@ -565,10 +650,12 @@ function TeacherDashboard() {
                                         Your note: {appointment.teacherNote}
                                     </div>
                                 )}
-                                {appointment.status === "CANCELLED" && (
+                                {appointment.status === "CANCELLED" ? (
                                     <button
                                         type="button"
-                                        onClick={() => acknowledgeCancelled(appointment.id)}
+                                        onClick={() =>
+                                            acknowledgeAppointment(appointment.id, "Cancelled booking acknowledged.")
+                                        }
                                         style={{
                                             marginTop: "8px",
                                             padding: "6px 10px",
@@ -582,7 +669,45 @@ function TeacherDashboard() {
                                     >
                                         Acknowledge
                                     </button>
-                                )}
+                                ) : appointment.status === "COMPLETED" ? (
+                                    appointment.completedBy === "STUDENT" ? (
+                                        <button
+                                            type="button"
+                                            onClick={() =>
+                                                acknowledgeAppointment(appointment.id, "Completed meeting acknowledged.")
+                                            }
+                                            style={{
+                                                marginTop: "8px",
+                                                padding: "6px 10px",
+                                                borderRadius: "6px",
+                                                border: "1px solid var(--primary)",
+                                                background: "#fff",
+                                                color: "var(--primary)",
+                                                cursor: "pointer",
+                                                fontWeight: 600,
+                                            }}
+                                        >
+                                            Acknowledge
+                                        </button>
+                                    ) : null
+                                ) : appointment.status === "CONFIRMED" ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => completeAppointment(appointment.id)}
+                                        style={{
+                                            marginTop: "8px",
+                                            padding: "6px 10px",
+                                            borderRadius: "6px",
+                                            border: "1px solid var(--primary)",
+                                            background: "var(--primary)",
+                                            color: "#fff",
+                                            cursor: "pointer",
+                                            fontWeight: 600,
+                                        }}
+                                    >
+                                        Mark as completed
+                                    </button>
+                                ) : null}
                                 {appointment.status === "PENDING" && (
                                     <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
                                         <input
