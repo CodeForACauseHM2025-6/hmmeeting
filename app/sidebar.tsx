@@ -19,6 +19,11 @@ export default function Sidebar({ role, isAuthenticated }: SidebarProps) {
   const pathname = usePathname();
 
   const navItems: NavItem[] = (() => {
+    // Don't show navigation items for unauthenticated users
+    if (!isAuthenticated || role === "GUEST") {
+      return [];
+    }
+
     if (role === "ADMIN") {
       return [
         { label: "Dashboard", href: "/dashboard" },
