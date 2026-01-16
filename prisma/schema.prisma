@@ -25,6 +25,9 @@ model User {
 
   // Appointments where this user is the student
   studentAppointments Appointment[] @relation("StudentAppointments")
+
+  // Student availability (free periods)
+  studentAvailability StudentAvailability[]
 }
 
 model Teacher {
@@ -39,9 +42,18 @@ model Teacher {
 }
 
 model Appointment {
-  id        String   @id @default(cuid())
-  startTime DateTime
-  endTime   DateTime
+  id        String            @id @default(cuid())
+  day       Int
+  period    Period
+  status    AppointmentStatus @default(PENDING)
+  room      String?
+  studentNote String?
+  teacherNote String?
+  studentCancelled Boolean @default(false)
+  studentAcknowledgedAt DateTime?
+  teacherAcknowledgedAt DateTime?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
 
   teacher   Teacher  @relation("TeacherAppointments", fields: [teacherId], references: [id])
   teacherId String
@@ -55,15 +67,47 @@ model Availability {
   teacher   Teacher @relation(fields: [teacherId], references: [id])
   teacherId String
 
-  day       Int    
-  startTime String  
-  endTime   String
+  day       Int
+  period    Period
 
   recurring Boolean @default(true)
+
+  @@index([teacherId, day])
+  @@unique([teacherId, day, period])
+}
+
+model StudentAvailability {
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id])
+  userId String
+
+  day    Int
+  period Period
+
+  @@index([userId, day])
+  @@unique([userId, day, period])
 }
 
 enum Role {
   STUDENT
   TEACHER
   ADMIN
+}
+
+enum Period {
+  A
+  B
+  C
+  D
+  E
+  F
+  G
+  H
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  DECLINED
+  CANCELLED
 }

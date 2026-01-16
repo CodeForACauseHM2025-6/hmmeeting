@@ -2,7 +2,9 @@
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #3a0b14;
+  --primary: #5b0d1f;
+  --primary-soft: #f8f2f3;
 }
 
 @theme inline {

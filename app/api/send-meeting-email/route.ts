@@ -1,75 +1,39 @@
-import { Resend } from 'resend';
-import { NextResponse } from 'next/server';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { NextResponse } from "next/server";
+import { prisma } from "@/src/server/db";
+import { sendMeetingEmails } from "@/src/server/email";
 
 export async function POST(request: Request) {
   try {
-    const { personName, personEmail, day, timeLabel, userEmail, userName } = await request.json();
+    const { appointmentId } = await request.json();
 
-    // Email 1: Confirmation to yourself
-    const confirmationEmail = await resend.emails.send({
-      from: 'Meeting Scheduler <onboarding@resend.dev>',
-      to: [userEmail],
-      subject: `Meeting Scheduled with ${personName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2 style="color: #5b0d1f;">Meeting Scheduled! 📅</h2>
-          
-          <p>Hi ${userName},</p>
-          
-          <p>You have scheduled a meeting with <strong>${personName}</strong>.</p>
-          
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>With:</strong> ${personName}</p>
-            <p style="margin: 5px 0;"><strong>Day:</strong> Day ${day}</p>
-            <p style="margin: 5px 0;"><strong>Time:</strong> ${timeLabel}</p>
-          </div>
-          
-          <p>A notification has been sent to ${personName}.</p>
-          
-          <p style="color: #666; font-size: 12px; margin-top: 30px;">
-            This is an automated message from your Meeting Scheduler app.
-          </p>
-        </div>
-      `
+    if (!appointmentId) {
+      return NextResponse.json({ error: "Missing appointmentId" }, { status: 400 });
+    }
+
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: {
+        teacher: { include: { user: true } },
+        student: true,
+      },
     });
 
-    // Email 2: Notification to the other person
-    const notificationEmail = await resend.emails.send({
-      from: 'Meeting Scheduler <onboarding@resend.dev>',
-      to: [personEmail],
-      subject: `${userName} would like to meet with you`,
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2 style="color: #5b0d1f;">Meeting Notification 📅</h2>
-          
-          <p>Hi ${personName},</p>
-          
-          <p><strong>${userName}</strong> would like to have a meeting with you.</p>
-          
-          <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
-            <p style="margin: 5px 0;"><strong>From:</strong> ${userName}</p>
-            <p style="margin: 5px 0;"><strong>Day:</strong> Day ${day}</p>
-            <p style="margin: 5px 0;"><strong>Time:</strong> ${timeLabel}</p>
-          </div>
-          
-          <p>Please reach out to ${userName} to confirm this meeting time.</p>
-          
-          <p style="color: #666; font-size: 12px; margin-top: 30px;">
-            This is an automated message from your Meeting Scheduler app.
-          </p>
-        </div>
-      `
+    if (!appointment) {
+      return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
+    }
+
+    const result = await sendMeetingEmails({
+      studentName: appointment.student.fullName,
+      studentEmail: appointment.student.email,
+      teacherName: appointment.teacher.user.fullName,
+      teacherEmail: appointment.teacher.user.email,
+      day: appointment.day,
+      period: appointment.period,
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      confirmationEmail, 
-      notificationEmail 
-    });
+    return NextResponse.json({ success: true, result });
   } catch (error) {
-    console.error('Error sending emails:', error);
-    return NextResponse.json({ error: 'Failed to send emails' }, { status: 500 });
+    console.error("Error sending emails:", error);
+    return NextResponse.json({ error: "Failed to send emails" }, { status: 500 });
   }
 }
