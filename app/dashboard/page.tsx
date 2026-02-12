@@ -92,6 +92,8 @@ function StudentDashboard() {
             period: PeriodValue;
             status: string;
             completedBy?: "STUDENT" | "TEACHER" | null;
+            meetingDate?: string | null;
+            meetingTime?: string | null;
             teacherName: string;
             teacherEmail: string;
             room?: string | null;
@@ -277,9 +279,19 @@ function StudentDashboard() {
                                 }}
                             >
                                 <div style={{ fontWeight: 600 }}>
-                                    {appointment.status === "CANCELLED" ? "CANCELLED: " : ""}
+                                    {appointment.status === "CANCELLED"
+                                        ? "CANCELLED: "
+                                        : appointment.status === "COMPLETED"
+                                          ? "COMPLETED: "
+                                          : ""}
                                     Day {appointment.day} • Period {appointment.period}
                                 </div>
+                                {appointment.meetingDate && (
+                                    <div style={{ color: "#777", fontSize: "13px" }}>
+                                        {appointment.meetingDate}
+                                        {appointment.meetingTime ? ` • ${appointment.meetingTime}` : ""}
+                                    </div>
+                                )}
                                 <div style={{ color: "#555" }}>
                                     Teacher: {appointment.teacherName} ({appointment.teacherEmail})
                                 </div>
@@ -321,7 +333,7 @@ function StudentDashboard() {
                                         Acknowledge
                                     </button>
                                 ) : appointment.status === "COMPLETED" ? (
-                                    appointment.completedBy === "TEACHER" ? (
+                                    appointment.completedBy !== "STUDENT" ? (
                                         <button
                                             type="button"
                                             onClick={() =>
@@ -465,6 +477,8 @@ function TeacherDashboard() {
             period: PeriodValue;
             status: string;
             completedBy?: "STUDENT" | "TEACHER" | null;
+            meetingDate?: string | null;
+            meetingTime?: string | null;
             studentName: string;
             studentEmail: string;
             room?: string | null;
@@ -626,9 +640,19 @@ function TeacherDashboard() {
                                 }}
                             >
                                 <div style={{ fontWeight: 600 }}>
-                                    {appointment.status === "CANCELLED" ? "CANCELLED: " : ""}
+                                    {appointment.status === "CANCELLED"
+                                        ? "CANCELLED: "
+                                        : appointment.status === "COMPLETED"
+                                          ? "COMPLETED: "
+                                          : ""}
                                     Day {appointment.day} • Period {appointment.period}
                                 </div>
+                                {appointment.meetingDate && (
+                                    <div style={{ color: "#777", fontSize: "13px" }}>
+                                        {appointment.meetingDate}
+                                        {appointment.meetingTime ? ` • ${appointment.meetingTime}` : ""}
+                                    </div>
+                                )}
                                 <div style={{ color: "#555" }}>
                                     Student: {appointment.studentName} ({appointment.studentEmail})
                                 </div>
@@ -670,7 +694,7 @@ function TeacherDashboard() {
                                         Acknowledge
                                     </button>
                                 ) : appointment.status === "COMPLETED" ? (
-                                    appointment.completedBy === "STUDENT" ? (
+                                    appointment.completedBy !== "TEACHER" ? (
                                         <button
                                             type="button"
                                             onClick={() =>

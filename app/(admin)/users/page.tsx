@@ -4,10 +4,13 @@ import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
 import { Role } from "@prisma/client";
 import { getRoleLists, resolveRole } from "@/src/config/roles";
+import { getEffectiveWeek } from "@/src/config/schedule";
 import { persistRoleLists } from "@/src/server/rolesFile";
 import { ensureDevUsers } from "@/src/server/devSeed";
+import UserSearchTable from "./user-search-table";
 
 const ROLE_OPTIONS = ["STUDENT", "TEACHER", "ADMIN"] as const;
+const SETTINGS_ID = "global";
 
 async function requireAdmin() {
   const session = await auth();
@@ -82,6 +85,26 @@ async function upsertUserRole(formData: FormData) {
   revalidatePath("/users");
 }
 
+async function updateScheduleWeek(formData: FormData) {
+  "use server";
+
+  await requireAdmin();
+
+  const weekValue = String(formData.get("week") ?? "");
+  if (weekValue !== "1" && weekValue !== "2") {
+    return;
+  }
+
+  const currentWeek = weekValue === "1" ? "WEEK1" : "WEEK2";
+  await prisma.appSettings.upsert({
+    where: { id: SETTINGS_ID },
+    create: { id: SETTINGS_ID, currentWeek, weekSetAt: new Date() },
+    update: { currentWeek, weekSetAt: new Date() },
+  });
+
+  revalidatePath("/users");
+}
+
 export default async function AdminUsersPage() {
   await requireAdmin();
 
@@ -91,6 +114,17 @@ export default async function AdminUsersPage() {
 
   const users = await prisma.user.findMany({
     orderBy: { fullName: "asc" },
+  });
+
+  const scheduleSettings = await prisma.appSettings.upsert({
+    where: { id: SETTINGS_ID },
+    create: { id: SETTINGS_ID },
+    update: {},
+  });
+  const currentWeekValue = scheduleSettings.currentWeek === "WEEK1" ? 1 : 2;
+  const effectiveWeek = getEffectiveWeek({
+    currentWeek: currentWeekValue,
+    weekSetAt: scheduleSettings.weekSetAt,
   });
 
   const usersWithRoles = users.map((user) => ({
@@ -168,60 +202,66 @@ export default async function AdminUsersPage() {
         </form>
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Name</th>
-            <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Email</th>
-            <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Role</th>
-            <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>Update</th>
-          </tr>
-        </thead>
-        <tbody>
-          {usersWithRoles.map((user) => (
-            <tr key={user.id}>
-              <td style={{ padding: "8px", borderBottom: "1px solid #f0f0f0" }}>{user.fullName}</td>
-              <td style={{ padding: "8px", borderBottom: "1px solid #f0f0f0" }}>{user.email}</td>
-              <td style={{ padding: "8px", borderBottom: "1px solid #f0f0f0" }}>{user.resolvedRole}</td>
-              <td style={{ padding: "8px", borderBottom: "1px solid #f0f0f0" }}>
-                <form action={upsertUserRole} style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-                  <input type="hidden" name="email" value={user.email} />
-                  <input type="hidden" name="fullName" value={user.fullName} />
-                  <select
-                    name="role"
-                    defaultValue={user.resolvedRole}
-                    style={{
-                      padding: "6px 8px",
-                      borderRadius: "6px",
-                      border: "1px solid #ccc",
-                    }}
-                  >
-                    {ROLE_OPTIONS.map((role) => (
-                      <option key={role} value={role}>
-                        {role}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="submit"
-                    style={{
-                      padding: "6px 10px",
-                      borderRadius: "6px",
-                      border: "none",
-                      backgroundColor: "var(--primary)",
-                      color: "#fff",
-                      fontWeight: 600,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Update
-                  </button>
-                </form>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div
+        style={{
+          border: "1px solid var(--primary)",
+          borderRadius: "12px",
+          padding: "20px",
+          marginBottom: "24px",
+          background: "#fff",
+          boxShadow: "0 10px 20px rgba(0,0,0,0.05)",
+        }}
+      >
+        <h2 style={{ fontSize: "20px", marginBottom: "12px", color: "var(--primary)" }}>
+          Schedule week
+        </h2>
+        <div style={{ color: "#555", marginBottom: "12px" }}>
+          <div>
+            Current week setting: <strong>Week {currentWeekValue}</strong>
+          </div>
+          <div>
+            Effective week today: <strong>Week {effectiveWeek}</strong>
+          </div>
+          <div>
+            Last set: {scheduleSettings.weekSetAt.toLocaleString()}
+          </div>
+        </div>
+        <form action={updateScheduleWeek} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          <label style={{ fontWeight: 600 }}>Set current week</label>
+          <select
+            name="week"
+            defaultValue={String(currentWeekValue)}
+            style={{
+              padding: "10px 12px",
+              borderRadius: "8px",
+              border: "1px solid #ccc",
+            }}
+          >
+            <option value="1">Week 1</option>
+            <option value="2">Week 2</option>
+          </select>
+          <button
+            type="submit"
+            style={{
+              padding: "10px 16px",
+              borderRadius: "8px",
+              border: "none",
+              backgroundColor: "var(--primary)",
+              color: "#fff",
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            Save week
+          </button>
+        </form>
+      </div>
+
+      <UserSearchTable
+        users={usersWithRoles}
+        roleOptions={ROLE_OPTIONS}
+        upsertAction={upsertUserRole}
+      />
     </div>
   );
 }

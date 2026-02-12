@@ -89,6 +89,14 @@ model StudentAvailability {
   @@unique([userId, day, period])
 }
 
+model AppSettings {
+  id          String       @id @default("global")
+  currentWeek ScheduleWeek @default(WEEK1)
+  weekSetAt   DateTime     @default(now())
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
 enum Role {
   STUDENT
   TEACHER
@@ -117,4 +125,9 @@ enum AppointmentStatus {
 enum CompletionActor {
   STUDENT
   TEACHER
+}
+
+enum ScheduleWeek {
+  WEEK1
+  WEEK2
 }

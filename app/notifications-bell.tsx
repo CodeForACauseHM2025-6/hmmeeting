@@ -10,6 +10,8 @@ type NotificationItem = {
   day: number;
   period: string;
   updatedAt: string;
+  meetingDate?: string | null;
+  meetingTime?: string | null;
 };
 
 export default function NotificationsBell() {
@@ -140,7 +142,16 @@ export default function NotificationsBell() {
                 >
                   <div style={{ fontWeight: 600 }}>{item.message}</div>
                   <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
-                    Day {item.day} • Period {item.period}
+                    {item.meetingDate ? (
+                      <>
+                        {item.meetingDate}
+                        {item.meetingTime ? ` • ${item.meetingTime}` : ""}
+                      </>
+                    ) : (
+                      <>
+                        Day {item.day} • Period {item.period}
+                      </>
+                    )}
                   </div>
                 </li>
               ))}

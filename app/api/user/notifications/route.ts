@@ -1,6 +1,11 @@
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
 import { resolveRole } from "@/src/config/roles";
+import {
+  buildDayDateMap,
+  formatMeetingDateTime,
+  type PeriodValue,
+} from "@/src/config/schedule";
 
 type NotificationItem = {
   id: string;
@@ -9,7 +14,62 @@ type NotificationItem = {
   day: number;
   period: string;
   updatedAt: string;
+  meetingDate?: string | null;
+  meetingTime?: string | null;
 };
+
+const SETTINGS_ID = "global";
+
+async function getScheduleSnapshot() {
+  const settings = await prisma.appSettings.upsert({
+    where: { id: SETTINGS_ID },
+    create: { id: SETTINGS_ID },
+    update: {},
+  });
+  return {
+    currentWeek: settings.currentWeek === "WEEK1" ? 1 : 2,
+    weekSetAt: settings.weekSetAt,
+  };
+}
+
+function getMeetingInfoForAppointment(
+  appointment: { day: number; period: PeriodValue; createdAt: Date },
+  scheduleSettings: { currentWeek: 1 | 2; weekSetAt: Date }
+) {
+  const { dayDates } = buildDayDateMap(scheduleSettings, appointment.createdAt, {
+    preferFuture: true,
+  });
+  const dayDate = dayDates[appointment.day];
+  if (!dayDate) return null;
+  return formatMeetingDateTime(dayDate, appointment.period);
+}
+
+async function autoCompleteAppointments(
+  appointments: { id: string; status: string; day: number; period: PeriodValue; createdAt: Date }[],
+  scheduleSettings: { currentWeek: 1 | 2; weekSetAt: Date }
+) {
+  const now = new Date();
+  const toComplete = appointments
+    .filter((appointment) => appointment.status === "CONFIRMED")
+    .filter((appointment) => {
+      const meetingInfo = getMeetingInfoForAppointment(appointment, scheduleSettings);
+      if (!meetingInfo) return false;
+      const { end } = meetingInfo;
+      return end.getTime() <= now.getTime();
+    })
+    .map((appointment) => appointment.id);
+
+  if (toComplete.length === 0) {
+    return false;
+  }
+
+  await prisma.appointment.updateMany({
+    where: { id: { in: toComplete } },
+    data: { status: "COMPLETED", completedBy: null },
+  });
+
+  return true;
+}
 
 export async function GET() {
   const session = await auth();
@@ -27,6 +87,7 @@ export async function GET() {
   }
 
   const role = resolveRole(session.user.email);
+  const scheduleSettings = await getScheduleSnapshot();
 
   if (role === "ADMIN") {
     return Response.json([]);
@@ -39,7 +100,7 @@ export async function GET() {
       teacherId = teacher.id;
     }
 
-    const appointments = await prisma.appointment.findMany({
+    let appointments = await prisma.appointment.findMany({
       where: {
         teacherId,
         OR: [
@@ -52,7 +113,41 @@ export async function GET() {
       take: 20,
     });
 
+    const didAutoComplete = await autoCompleteAppointments(
+      appointments.map((appointment) => ({
+        id: appointment.id,
+        status: appointment.status,
+        day: appointment.day,
+        period: appointment.period,
+        createdAt: appointment.createdAt,
+      })),
+      scheduleSettings
+    );
+
+    if (didAutoComplete) {
+      appointments = await prisma.appointment.findMany({
+        where: {
+          teacherId,
+          OR: [
+            { status: { in: ["PENDING", "CONFIRMED", "DECLINED", "COMPLETED"] } },
+            { status: "CANCELLED", studentCancelled: true },
+          ],
+        },
+        include: { student: true },
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+      });
+    }
+
     const notifications: NotificationItem[] = appointments.map((appointment) => {
+      const meetingInfo = getMeetingInfoForAppointment(
+        {
+          day: appointment.day,
+          period: appointment.period,
+          createdAt: appointment.createdAt,
+        },
+        scheduleSettings
+      );
       let message = `Meeting update with ${appointment.student.fullName}`;
       if (appointment.status === "PENDING") {
         message = `New meeting request from ${appointment.student.fullName}`;
@@ -73,13 +168,15 @@ export async function GET() {
         day: appointment.day,
         period: appointment.period,
         updatedAt: appointment.updatedAt.toISOString(),
+        meetingDate: meetingInfo?.dateLabel ?? null,
+        meetingTime: meetingInfo?.timeLabel ?? null,
       };
     });
 
     return Response.json(notifications);
   }
 
-  const appointments = await prisma.appointment.findMany({
+  let appointments = await prisma.appointment.findMany({
     where: {
       studentId: user.id,
       OR: [
@@ -92,7 +189,41 @@ export async function GET() {
     take: 20,
   });
 
+  const didAutoComplete = await autoCompleteAppointments(
+    appointments.map((appointment) => ({
+      id: appointment.id,
+      status: appointment.status,
+      day: appointment.day,
+      period: appointment.period,
+      createdAt: appointment.createdAt,
+    })),
+    scheduleSettings
+  );
+
+  if (didAutoComplete) {
+    appointments = await prisma.appointment.findMany({
+      where: {
+        studentId: user.id,
+        OR: [
+          { status: { in: ["CONFIRMED", "DECLINED", "COMPLETED"] } },
+          { status: "CANCELLED", studentCancelled: false },
+        ],
+      },
+      include: { teacher: { include: { user: true } } },
+      orderBy: { updatedAt: "desc" },
+      take: 20,
+    });
+  }
+
   const notifications: NotificationItem[] = appointments.map((appointment) => {
+    const meetingInfo = getMeetingInfoForAppointment(
+      {
+        day: appointment.day,
+        period: appointment.period,
+        createdAt: appointment.createdAt,
+      },
+      scheduleSettings
+    );
     let message = `Meeting update with ${appointment.teacher.user.fullName}`;
     if (appointment.status === "CONFIRMED") {
       message = `Meeting confirmed with ${appointment.teacher.user.fullName}`;
@@ -111,6 +242,8 @@ export async function GET() {
       day: appointment.day,
       period: appointment.period,
       updatedAt: appointment.updatedAt.toISOString(),
+      meetingDate: meetingInfo?.dateLabel ?? null,
+      meetingTime: meetingInfo?.timeLabel ?? null,
     };
   });
 

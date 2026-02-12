@@ -4,7 +4,12 @@
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
 import { sendMeetingEmails } from "@/src/server/email";
-import { PERIODS, type PeriodValue } from "@/src/config/schedule";
+import {
+  PERIODS,
+  buildDayDateMap,
+  formatMeetingDateTime,
+  type PeriodValue,
+} from "@/src/config/schedule";
 import { resolveRole } from "@/src/config/roles";
 
 type AppointmentPayload = {
@@ -13,6 +18,59 @@ type AppointmentPayload = {
   period: PeriodValue;
   studentNote?: string;
 };
+
+const SETTINGS_ID = "global";
+
+async function getScheduleSnapshot() {
+  const settings = await prisma.appSettings.upsert({
+    where: { id: SETTINGS_ID },
+    create: { id: SETTINGS_ID },
+    update: {},
+  });
+  return {
+    currentWeek: settings.currentWeek === "WEEK1" ? 1 : 2,
+    weekSetAt: settings.weekSetAt,
+  };
+}
+
+function getMeetingInfoForAppointment(
+  appointment: { day: number; period: PeriodValue; createdAt: Date },
+  scheduleSettings: { currentWeek: 1 | 2; weekSetAt: Date }
+) {
+  const { dayDates } = buildDayDateMap(scheduleSettings, appointment.createdAt, {
+    preferFuture: true,
+  });
+  const dayDate = dayDates[appointment.day];
+  if (!dayDate) return null;
+  return formatMeetingDateTime(dayDate, appointment.period);
+}
+
+async function autoCompleteAppointments(
+  appointments: { id: string; status: string; day: number; period: PeriodValue; createdAt: Date }[],
+  scheduleSettings: { currentWeek: 1 | 2; weekSetAt: Date }
+) {
+  const now = new Date();
+  const toComplete = appointments
+    .filter((appointment) => appointment.status === "CONFIRMED")
+    .filter((appointment) => {
+      const meetingInfo = getMeetingInfoForAppointment(appointment, scheduleSettings);
+      if (!meetingInfo) return false;
+      const { end } = meetingInfo;
+      return end.getTime() <= now.getTime();
+    })
+    .map((appointment) => appointment.id);
+
+  if (toComplete.length === 0) {
+    return false;
+  }
+
+  await prisma.appointment.updateMany({
+    where: { id: { in: toComplete } },
+    data: { status: "COMPLETED", completedBy: null },
+  });
+
+  return true;
+}
 
 export async function GET() {
   const session = await auth();
@@ -30,6 +88,7 @@ export async function GET() {
   }
 
   const resolvedRole = resolveRole(session.user.email);
+  const scheduleSettings = await getScheduleSnapshot();
 
   // #region agent log
   fetch('http://127.0.0.1:7242/ingest/cc89fe79-f21f-41c4-9836-b19789698f76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/user/appointments/route.ts:GET',message:'Appointments GET role',data:{resolvedRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
@@ -42,7 +101,7 @@ export async function GET() {
       teacherId = teacher.id;
     }
 
-    const appointments = await prisma.appointment.findMany({
+    let appointments = await prisma.appointment.findMany({
       where: {
         teacherId,
         OR: [
@@ -54,8 +113,47 @@ export async function GET() {
       orderBy: [{ day: "asc" }, { period: "asc" }],
     });
 
+    const didAutoComplete = await autoCompleteAppointments(
+      appointments.map((appointment) => ({
+        id: appointment.id,
+        status: appointment.status,
+        day: appointment.day,
+        period: appointment.period,
+        createdAt: appointment.createdAt,
+      })),
+      scheduleSettings
+    );
+
+    if (didAutoComplete) {
+      appointments = await prisma.appointment.findMany({
+        where: {
+          teacherId,
+          OR: [
+            { status: { not: "CANCELLED" } },
+            { status: "CANCELLED", studentCancelled: true },
+          ],
+        },
+        include: { student: true },
+        orderBy: [{ day: "asc" }, { period: "asc" }],
+      });
+    }
+
     return Response.json(
       appointments.map((appointment) => ({
+        ...(() => {
+          const meetingInfo = getMeetingInfoForAppointment(
+            {
+              day: appointment.day,
+              period: appointment.period,
+              createdAt: appointment.createdAt,
+            },
+            scheduleSettings
+          );
+          return {
+            meetingDate: meetingInfo?.dateLabel ?? null,
+            meetingTime: meetingInfo?.timeLabel ?? null,
+          };
+        })(),
         id: appointment.id,
         day: appointment.day,
         period: appointment.period,
@@ -74,7 +172,7 @@ export async function GET() {
     return Response.json([]);
   }
 
-  const appointments = await prisma.appointment.findMany({
+  let appointments = await prisma.appointment.findMany({
     where: {
       studentId: user.id,
       OR: [
@@ -86,8 +184,47 @@ export async function GET() {
     orderBy: [{ day: "asc" }, { period: "asc" }],
   });
 
+  const didAutoComplete = await autoCompleteAppointments(
+    appointments.map((appointment) => ({
+      id: appointment.id,
+      status: appointment.status,
+      day: appointment.day,
+      period: appointment.period,
+      createdAt: appointment.createdAt,
+    })),
+    scheduleSettings
+  );
+
+  if (didAutoComplete) {
+    appointments = await prisma.appointment.findMany({
+      where: {
+        studentId: user.id,
+        OR: [
+          { status: { not: "CANCELLED" } },
+          { status: "CANCELLED", studentCancelled: false },
+        ],
+      },
+      include: { teacher: { include: { user: true } } },
+      orderBy: [{ day: "asc" }, { period: "asc" }],
+    });
+  }
+
   return Response.json(
     appointments.map((appointment) => ({
+      ...(() => {
+        const meetingInfo = getMeetingInfoForAppointment(
+          {
+            day: appointment.day,
+            period: appointment.period,
+            createdAt: appointment.createdAt,
+          },
+          scheduleSettings
+        );
+        return {
+          meetingDate: meetingInfo?.dateLabel ?? null,
+          meetingTime: meetingInfo?.timeLabel ?? null,
+        };
+      })(),
       id: appointment.id,
       day: appointment.day,
       period: appointment.period,
@@ -180,6 +317,12 @@ export async function POST(request: Request) {
     },
   });
 
+  const scheduleSettings = await getScheduleSnapshot();
+  const meetingInfo = getMeetingInfoForAppointment(
+    { day, period, createdAt: new Date() },
+    scheduleSettings
+  );
+
   try {
     await sendMeetingEmails({
       studentName: student.fullName,
@@ -188,6 +331,8 @@ export async function POST(request: Request) {
       teacherEmail: teacher.user.email,
       day,
       period,
+      dateLabel: meetingInfo?.dateLabel ?? null,
+      timeLabel: meetingInfo?.timeLabel ?? null,
     });
   } catch (error) {
     console.error("Failed to send meeting emails:", error);
@@ -359,12 +504,11 @@ export async function PATCH(request: Request) {
     }
 
     if (appointment.status === "COMPLETED") {
-      if (!appointment.completedBy) {
-        return new Response("Missing completion metadata", { status: 400 });
-      }
-
       if (resolvedRole === "STUDENT") {
-        if (appointment.studentId !== user.id || appointment.completedBy !== "TEACHER") {
+        if (appointment.studentId !== user.id) {
+          return new Response("Forbidden", { status: 403 });
+        }
+        if (appointment.completedBy === "STUDENT") {
           return new Response("Forbidden", { status: 403 });
         }
         const deleted = await prisma.appointment.delete({ where: { id } });
@@ -373,7 +517,10 @@ export async function PATCH(request: Request) {
 
       if (resolvedRole === "TEACHER") {
         const teacherId = await resolveTeacherId();
-        if (appointment.teacherId !== teacherId || appointment.completedBy !== "STUDENT") {
+        if (appointment.teacherId !== teacherId) {
+          return new Response("Forbidden", { status: 403 });
+        }
+        if (appointment.completedBy === "TEACHER") {
           return new Response("Forbidden", { status: 403 });
         }
         const deleted = await prisma.appointment.delete({ where: { id } });

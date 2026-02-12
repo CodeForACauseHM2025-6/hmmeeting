@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { DAYS, PERIODS, type PeriodValue } from "@/src/config/schedule";
+import {
+  DAYS,
+  PERIODS,
+  buildDayDateMap,
+  formatMeetingDateTime,
+  formatScheduleDate,
+  type PeriodValue,
+} from "@/src/config/schedule";
 
 type AvailabilitySlot = {
   id: string;
@@ -27,6 +34,7 @@ export default function TeacherAvailabilityPage() {
   const [userRole, setUserRole] = useState<"STUDENT" | "TEACHER" | "ADMIN" | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [dayDates, setDayDates] = useState<Record<number, Date>>({});
   const [selectedSlot, setSelectedSlot] = useState<{ day: number; period: PeriodValue } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [booking, setBooking] = useState(false);
@@ -101,7 +109,29 @@ export default function TeacherAvailabilityPage() {
       }
     }
 
-    Promise.all([loadAvailability(), loadStudentSchedule()]).finally(() => setLoading(false));
+    async function loadScheduleDates() {
+      try {
+        const response = await fetch("/api/schedule");
+        if (!response.ok) {
+          return;
+        }
+        const data = await response.json();
+        if (!data?.currentWeek || !data?.weekSetAt) {
+          return;
+        }
+        const { dayDates: nextDates } = buildDayDateMap({
+          currentWeek: data.currentWeek,
+          weekSetAt: data.weekSetAt,
+        });
+        setDayDates(nextDates);
+      } catch {
+        // Ignore schedule date errors so availability still loads.
+      }
+    }
+
+    Promise.all([loadAvailability(), loadStudentSchedule(), loadScheduleDates()]).finally(() =>
+      setLoading(false)
+    );
   }, [teacherId, router]);
 
   const requestMeeting = async (slot: { day: number; period: PeriodValue }) => {
@@ -259,7 +289,11 @@ export default function TeacherAvailabilityPage() {
                   background: "#fff",
                 }}
               >
-                <strong>Day {day.day}:</strong> {day.periods.join(", ")}
+                <strong>
+                  Day {day.day}
+                  {dayDates[day.day] ? ` (${formatScheduleDate(dayDates[day.day])})` : ""}:
+                </strong>{" "}
+                {day.periods.join(", ")}
               </li>
             ))}
           </ul>
@@ -282,7 +316,14 @@ export default function TeacherAvailabilityPage() {
                 <th style={{ textAlign: "left", padding: "8px 12px" }}>Period</th>
                 {DAYS.map((day) => (
                   <th key={day} style={{ padding: "8px 12px", color: "var(--primary)" }}>
-                    Day {day}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "2px" }}>
+                      <span>Day {day}</span>
+                      {dayDates[day] && (
+                        <span style={{ fontSize: "12px", color: "#666" }}>
+                          {formatScheduleDate(dayDates[day])}
+                        </span>
+                      )}
+                    </div>
                   </th>
                 ))}
               </tr>
@@ -373,6 +414,10 @@ export default function TeacherAvailabilityPage() {
               const teacherFree = teacherFreeSet.has(key);
               const studentFree = studentFreeSet.has(key);
               const bothFree = teacherFree && studentFree;
+              const selectedDate = dayDates[selectedSlot.day];
+              const meetingInfo = selectedDate
+                ? formatMeetingDateTime(selectedDate, selectedSlot.period)
+                : null;
               let warning = "";
 
               if (!bothFree) {
@@ -390,6 +435,11 @@ export default function TeacherAvailabilityPage() {
                   <h2 style={{ fontSize: "20px", marginBottom: "8px", color: "var(--primary)" }}>
                     Would you like to request a meeting with {teacherName}, Period {selectedSlot.period} Day {selectedSlot.day}
                   </h2>
+                  {meetingInfo && (
+                    <div style={{ marginBottom: "8px", color: "#555" }}>
+                      {meetingInfo.dateLabel} • {meetingInfo.timeLabel}
+                    </div>
+                  )}
                   {!bothFree && (
                     <p style={{ color: "#b00020", marginBottom: "12px" }}>{warning}</p>
                   )}

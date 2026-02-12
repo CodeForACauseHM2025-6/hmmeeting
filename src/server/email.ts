@@ -7,6 +7,8 @@ type MeetingEmailPayload = {
   teacherEmail: string;
   day: number;
   period: string;
+  dateLabel?: string | null;
+  timeLabel?: string | null;
 };
 
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
@@ -16,8 +18,9 @@ export async function sendMeetingEmails(payload: MeetingEmailPayload) {
     return { skipped: true, reason: "Missing RESEND_API_KEY" };
   }
 
-  const { studentName, studentEmail, teacherName, teacherEmail, day, period } = payload;
-  const timeLabel = `Period ${period}`;
+  const { studentName, studentEmail, teacherName, teacherEmail, day, period, dateLabel, timeLabel } = payload;
+  const displayDate = dateLabel ? dateLabel : `Day ${day}`;
+  const displayTime = timeLabel ? timeLabel : `Period ${period}`;
 
   const confirmation = await resend.emails.send({
     from: "Meeting Scheduler <onboarding@resend.dev>",
@@ -30,8 +33,8 @@ export async function sendMeetingEmails(payload: MeetingEmailPayload) {
         <p>Your meeting request has been sent to <strong>${teacherName}</strong>.</p>
         <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>With:</strong> ${teacherName}</p>
-          <p style="margin: 5px 0;"><strong>Day:</strong> Day ${day}</p>
-          <p style="margin: 5px 0;"><strong>Time:</strong> ${timeLabel}</p>
+          <p style="margin: 5px 0;"><strong>Date:</strong> ${displayDate}</p>
+          <p style="margin: 5px 0;"><strong>Time:</strong> ${displayTime}</p>
         </div>
         <p style="color: #666; font-size: 12px; margin-top: 30px;">
           This is an automated message from your Meeting Scheduler app.
@@ -51,8 +54,8 @@ export async function sendMeetingEmails(payload: MeetingEmailPayload) {
         <p><strong>${studentName}</strong> would like to meet with you.</p>
         <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
           <p style="margin: 5px 0;"><strong>From:</strong> ${studentName}</p>
-          <p style="margin: 5px 0;"><strong>Day:</strong> Day ${day}</p>
-          <p style="margin: 5px 0;"><strong>Time:</strong> ${timeLabel}</p>
+          <p style="margin: 5px 0;"><strong>Date:</strong> ${displayDate}</p>
+          <p style="margin: 5px 0;"><strong>Time:</strong> ${displayTime}</p>
         </div>
         <p style="color: #666; font-size: 12px; margin-top: 30px;">
           This is an automated message from your Meeting Scheduler app.
