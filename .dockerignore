@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+.gitignore
+.env*
+*.md
+.DS_Store
+.cursor
+prisma/dev.db
+prisma/dev.db-journal

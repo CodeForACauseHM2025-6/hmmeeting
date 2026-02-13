@@ -9,6 +9,7 @@ import { PERIODS, type PeriodValue } from "@/src/config/schedule";
 type FreePeriodInput = {
     day: number;
     period: PeriodValue;
+    type?: string;
 };
 
 export async function GET(request: Request) {
@@ -65,6 +66,7 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => null);
     const fullName = body?.fullName?.trim();
     const freePeriods = Array.isArray(body?.freePeriods) ? (body?.freePeriods as FreePeriodInput[]) : [];
+    const room = typeof body?.room === "string" ? body.room.trim() : undefined;
     const resolvedRole: RoleValue = resolveRole(session.user.email);
 
     if (!fullName) {
@@ -89,10 +91,14 @@ export async function POST(request: Request) {
     let teacherId: string | null = null;
 
     if (role === "TEACHER") {
+        const teacherUpdate: { room?: string } = {};
+        if (room !== undefined) {
+            teacherUpdate.room = room || null;
+        }
         const teacher = await prisma.teacher.upsert({
             where: { userId: user.id },
-            create: { userId: user.id },
-            update: {},
+            create: { userId: user.id, ...(room !== undefined ? { room: room || null } : {}) },
+            update: teacherUpdate,
         });
         teacherId = teacher.id;
     }
@@ -152,6 +158,7 @@ export async function POST(request: Request) {
                     teacherId,
                     day: period.day,
                     period: period.period,
+                    type: period.type === "OFFICE_HOURS" ? "OFFICE_HOURS" : "FREE",
                 })),
             });
         }

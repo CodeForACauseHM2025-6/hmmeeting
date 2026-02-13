@@ -41,7 +41,7 @@ function getMeetingInfoForAppointment(
   });
   const dayDate = dayDates[appointment.day];
   if (!dayDate) return null;
-  return formatMeetingDateTime(dayDate, appointment.period);
+  return formatMeetingDateTime(dayDate, appointment.period, appointment.day);
 }
 
 async function autoCompleteAppointments(

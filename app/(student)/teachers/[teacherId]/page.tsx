@@ -15,6 +15,7 @@ type AvailabilitySlot = {
   id: string;
   day: number;
   period: PeriodValue;
+  type?: string;
 };
 
 type StudentFreePeriod = {
@@ -43,6 +44,16 @@ export default function TeacherAvailabilityPage() {
 
   const teacherFreeSet = useMemo(
     () => new Set(availability.map((slot) => `${slot.day}-${slot.period}`)),
+    [availability]
+  );
+
+  // Track which slots are office hours
+  const officeHoursSet = useMemo(
+    () => new Set(
+      availability
+        .filter((slot) => slot.type === "OFFICE_HOURS")
+        .map((slot) => `${slot.day}-${slot.period}`)
+    ),
     [availability]
   );
 
@@ -91,7 +102,6 @@ export default function TeacherAvailabilityPage() {
 
       const data = (await response.json()) as AvailabilitySlot[];
       setAvailability(data);
-
     }
 
     async function loadStudentSchedule() {
@@ -105,7 +115,6 @@ export default function TeacherAvailabilityPage() {
       }
       if (Array.isArray(data?.studentAvailability)) {
         setStudentSchedule(data.studentAvailability);
-
       }
     }
 
@@ -139,7 +148,11 @@ export default function TeacherAvailabilityPage() {
     setMessage("");
     setBooking(true);
 
-    if (!studentNote.trim()) {
+    const key = `${slot.day}-${slot.period}`;
+    const isOH = officeHoursSet.has(key);
+
+    // For regular meetings, note is required
+    if (!isOH && !studentNote.trim()) {
       setMessage("Reason for meeting is required.");
       setBooking(false);
       return;
@@ -168,12 +181,19 @@ export default function TeacherAvailabilityPage() {
       return;
     }
 
-    router.push("/dashboard?booking=success");
+    if (userRole === "ADMIN") {
+      router.push("/teachers?booking=success");
+    } else {
+      router.push("/dashboard?booking=success");
+    }
   };
 
   if (loading) {
     return <div style={{ padding: "40px" }}>Loading availability...</div>;
   }
+
+  // Check if any office hours slots exist to show in legend
+  const hasOfficeHours = officeHoursSet.size > 0;
 
   return (
     <div style={{ padding: "40px", maxWidth: "900px", margin: "0 auto" }}>
@@ -191,7 +211,7 @@ export default function TeacherAvailabilityPage() {
               padding: 0,
             }}
           >
-            ← Back to teachers
+            {userRole === "ADMIN" ? "← Back to users" : "← Back to teachers"}
           </button>
 
           <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
@@ -230,7 +250,7 @@ export default function TeacherAvailabilityPage() {
                 borderRadius: "10px",
                 padding: "12px",
                 boxShadow: "0 8px 16px rgba(0,0,0,0.08)",
-                width: "200px",
+                width: "220px",
                 zIndex: 10,
               }}
             >
@@ -239,9 +259,10 @@ export default function TeacherAvailabilityPage() {
               </div>
               {[
                 { label: "No match", bg: "#ffffff" },
-                { label: "Only student free", bg: "#1e88e5" },
-                { label: "Only teacher free", bg: "#f57c00" },
+                { label: "Only you free", bg: "#1e88e5" },
+                { label: "Only they free", bg: "#f57c00" },
                 { label: "Both free", bg: "#2e7d32" },
+                ...(hasOfficeHours ? [{ label: "Office Hours", bg: "#7b1fa2" }] : []),
               ].map((item) => (
                 <div key={item.label} style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
                   <span
@@ -265,9 +286,9 @@ export default function TeacherAvailabilityPage() {
           Add your free periods in account setup to filter availability.
         </p>
       )}
-      {userRole && userRole !== "STUDENT" && (
+      {userRole && userRole !== "STUDENT" && userRole !== "ADMIN" && (
         <p style={{ color: "#666", marginBottom: "12px" }}>
-          You can view availability but only students can request meetings.
+          You can view availability but only students and admins can request meetings.
         </p>
       )}
       {message && <p style={{ color: "#b00020", marginBottom: "12px" }}>{message}</p>}
@@ -336,14 +357,19 @@ export default function TeacherAvailabilityPage() {
                     const key = `${day}-${period}`;
                     const teacherFree = teacherFreeSet.has(key);
                     const studentFree = studentFreeSet.has(key);
+                    const isOH = officeHoursSet.has(key);
                     const bothFree = teacherFree && studentFree;
                     const onlyStudent = studentFree && !teacherFree;
                     const onlyTeacher = teacherFree && !studentFree;
-                    const noneFree = !teacherFree && !studentFree;
 
                     let backgroundColor = "#ffffff";
                     let textColor = "var(--primary)";
-                    if (bothFree) {
+
+                    if (isOH) {
+                      // Office hours: purple
+                      backgroundColor = "#7b1fa2";
+                      textColor = "#fff";
+                    } else if (bothFree) {
                       backgroundColor = "#2e7d32";
                       textColor = "#fff";
                     } else if (onlyStudent) {
@@ -352,16 +378,16 @@ export default function TeacherAvailabilityPage() {
                     } else if (onlyTeacher) {
                       backgroundColor = "#f57c00";
                       textColor = "#fff";
-                    } else if (noneFree) {
-                      backgroundColor = "#ffffff";
-                      textColor = "var(--primary)";
                     }
+
                     return (
                       <td key={key} style={{ padding: "8px 12px" }}>
                         <button
                           type="button"
                           onClick={() => {
                             setSelectedSlot({ day, period });
+                            setStudentNote("");
+                            setMessage("");
                             setModalOpen(true);
                           }}
                           style={{
@@ -375,7 +401,7 @@ export default function TeacherAvailabilityPage() {
                             cursor: "pointer",
                           }}
                         >
-                          {period}
+                          {isOH ? "OH" : period}
                         </button>
                       </td>
                     );
@@ -413,14 +439,15 @@ export default function TeacherAvailabilityPage() {
               const key = `${selectedSlot.day}-${selectedSlot.period}`;
               const teacherFree = teacherFreeSet.has(key);
               const studentFree = studentFreeSet.has(key);
+              const isOH = officeHoursSet.has(key);
               const bothFree = teacherFree && studentFree;
               const selectedDate = dayDates[selectedSlot.day];
               const meetingInfo = selectedDate
-                ? formatMeetingDateTime(selectedDate, selectedSlot.period)
+                ? formatMeetingDateTime(selectedDate, selectedSlot.period, selectedSlot.day)
                 : null;
               let warning = "";
 
-              if (!bothFree) {
+              if (!isOH && !bothFree) {
                 if (!teacherFree && !studentFree) {
                   warning = `WARNING: You and ${teacherName} are not free this period, please double check before booking.`;
                 } else if (!studentFree) {
@@ -430,27 +457,36 @@ export default function TeacherAvailabilityPage() {
                 }
               }
 
+              const canBook = userRole === "STUDENT" || userRole === "ADMIN";
+
               return (
                 <>
-                  <h2 style={{ fontSize: "20px", marginBottom: "8px", color: "var(--primary)" }}>
-                    Would you like to request a meeting with {teacherName}, Period {selectedSlot.period} Day {selectedSlot.day}
+                  <h2 style={{ fontSize: "20px", marginBottom: "8px", color: isOH ? "#7b1fa2" : "var(--primary)" }}>
+                    {isOH
+                      ? `Book Office Hours with ${teacherName}`
+                      : `Would you like to request a meeting with ${teacherName}, Period ${selectedSlot.period} Day ${selectedSlot.day}`}
                   </h2>
                   {meetingInfo && (
                     <div style={{ marginBottom: "8px", color: "#555" }}>
                       {meetingInfo.dateLabel} • {meetingInfo.timeLabel}
                     </div>
                   )}
-                  {!bothFree && (
+                  {isOH && (
+                    <p style={{ color: "#7b1fa2", marginBottom: "12px", fontSize: "14px" }}>
+                      Office hours bookings are automatically confirmed.
+                    </p>
+                  )}
+                  {warning && (
                     <p style={{ color: "#b00020", marginBottom: "12px" }}>{warning}</p>
                   )}
-                  {userRole && userRole !== "STUDENT" && (
+                  {!canBook && (
                     <p style={{ color: "#666", marginBottom: "12px" }}>
-                      Only students can book meetings.
+                      Only students and admins can book meetings.
                     </p>
                   )}
                   <div style={{ marginTop: "12px" }}>
                     <label style={{ fontWeight: 600, display: "block", marginBottom: "6px" }}>
-                      Reason for meet / additional notes
+                      {isOH ? "Notes (optional)" : "Reason for meet / additional notes"}
                     </label>
                     <textarea
                       value={studentNote}
@@ -481,19 +517,24 @@ export default function TeacherAvailabilityPage() {
                     </button>
                     <button
                       type="button"
-                      disabled={userRole !== "STUDENT" || booking}
+                      disabled={!canBook || booking}
                       onClick={() => requestMeeting(selectedSlot)}
                       style={{
                         padding: "8px 12px",
                         borderRadius: "8px",
                         border: "none",
-                        backgroundColor:
-                          userRole === "STUDENT" ? "var(--primary)" : "#ccc",
+                        backgroundColor: canBook
+                          ? (isOH ? "#7b1fa2" : "var(--primary)")
+                          : "#ccc",
                         color: "#fff",
-                        cursor: userRole === "STUDENT" ? "pointer" : "not-allowed",
+                        cursor: canBook ? "pointer" : "not-allowed",
                       }}
                     >
-                      {booking ? "Booking..." : "Confirm"}
+                      {booking
+                        ? "Booking..."
+                        : isOH
+                          ? "Book Office Hours"
+                          : "Confirm"}
                     </button>
                   </div>
                 </>

@@ -51,29 +51,42 @@ async function seedStudent(user: DevUser, userId: string) {
   }
 }
 
+let seeding = false;
+
 export async function ensureDevUsers() {
   if (process.env.NODE_ENV === "production") {
     return;
   }
 
-  for (const devUser of DEV_USERS) {
-    const user = await prisma.user.upsert({
-      where: { email: devUser.email },
-      create: {
-        email: devUser.email,
-        fullName: devUser.fullName,
-        role: devUser.role,
-      },
-      update: {
-        fullName: devUser.fullName,
-        role: devUser.role,
-      },
-    });
+  // Prevent concurrent seeding which causes unique constraint errors
+  if (seeding) return;
+  seeding = true;
 
-    if (devUser.role === "TEACHER") {
-      await seedTeacher(devUser, user.id);
-    } else {
-      await seedStudent(devUser, user.id);
+  try {
+    for (const devUser of DEV_USERS) {
+      const user = await prisma.user.upsert({
+        where: { email: devUser.email },
+        create: {
+          email: devUser.email,
+          fullName: devUser.fullName,
+          role: devUser.role,
+        },
+        update: {
+          fullName: devUser.fullName,
+          role: devUser.role,
+        },
+      });
+
+      if (devUser.role === "TEACHER") {
+        await seedTeacher(devUser, user.id);
+      } else {
+        await seedStudent(devUser, user.id);
+      }
     }
+  } catch (error) {
+    // Ignore unique constraint errors from concurrent page loads
+    console.warn("Dev seed warning (likely concurrent call):", (error as Error).message?.slice(0, 80));
+  } finally {
+    seeding = false;
   }
 }

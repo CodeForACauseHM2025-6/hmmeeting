@@ -69,21 +69,38 @@ export default function DashboardPage() {
         return <div>Redirecting...</div>;
     }
 
+    const firstName = user.fullName.split(" ")[0];
+
     switch (user.role) {
-        case "STUDENT":
-            return <StudentDashboard />;
-        case "TEACHER":
-            return <TeacherDashboard />;
         case "ADMIN":
-            return <AdminDashboard />;
+            return <AdminRedirect />;
+        case "STUDENT":
+            return <StudentDashboard firstName={firstName} />;
+        case "TEACHER":
+            return <TeacherDashboard firstName={firstName} />;
         default:
             // No role found; redirect handled by useEffect
             return <div>Redirecting to setup...</div>;
     }
 }
 
+function AdminRedirect() {
+    const router = useRouter();
+    useEffect(() => {
+        router.replace("/users");
+    }, [router]);
+    return <div>Redirecting...</div>;
+}
+
+function getGreeting(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+}
+
 // Student Dashboard. This displays the student's dashboard (ref. "Brighten Example Profile Page - Unael" on the Figma)
-function StudentDashboard() {
+function StudentDashboard({ firstName }: { firstName: string }) {
     const [schedule, setSchedule] = useState<{ day: number; period: PeriodValue }[]>([]);
     const [appointments, setAppointments] = useState<
         {
@@ -214,10 +231,10 @@ function StudentDashboard() {
     return (
         <div style={{ padding: "40px", maxWidth: "1000px", margin: "0 auto" }}>
             <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
-                Student Dashboard
+                {getGreeting()}, {firstName}
             </h1>
             <p style={{ marginBottom: "20px", color: "#555" }}>
-                Review your free periods and request meetings with teachers.
+                This is your dashboard.
             </p>
 
             <div
@@ -469,7 +486,7 @@ function StudentDashboard() {
 }
 
 // TODO: Design this on Fi
-function TeacherDashboard() {
+function TeacherDashboard({ firstName }: { firstName: string }) {
     const [appointments, setAppointments] = useState<
         {
             id: string;
@@ -589,10 +606,10 @@ function TeacherDashboard() {
     return (
         <div style={{ padding: "40px" }}>
             <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
-                Teacher Dashboard
+                {getGreeting()}, {firstName}
             </h1>
             <p style={{ marginBottom: "20px", color: "#555" }}>
-                Set your available periods in account setup and review upcoming meetings here.
+                This is your dashboard.
             </p>
 
             <Link
@@ -800,13 +817,13 @@ function TeacherDashboard() {
     );
 }
 
-function AdminDashboard() {
+function AdminDashboard({ firstName }: { firstName: string }) {
     return (
         <div style={{ padding: "40px" }}>
             <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
-                Admin Dashboard
+                {getGreeting()}, {firstName}
             </h1>
-            <p style={{ marginBottom: "20px" }}>Review users and roles.</p>
+            <p style={{ marginBottom: "20px" }}>This is your dashboard.</p>
             <Link
                 href="/users"
                 style={{

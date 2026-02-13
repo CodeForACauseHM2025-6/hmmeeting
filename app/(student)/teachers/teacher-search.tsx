@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type TeacherOption = {
   id: string;
@@ -11,12 +11,15 @@ type TeacherOption = {
 
 type TeacherSearchProps = {
   teachers: TeacherOption[];
+  isAdmin?: boolean;
 };
 
-export default function TeacherSearch({ teachers }: TeacherSearchProps) {
+export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<TeacherOption | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const bookingSuccess = searchParams.get("booking") === "success";
 
   const suggestions = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -34,17 +37,33 @@ export default function TeacherSearch({ teachers }: TeacherSearchProps) {
   };
 
   return (
-    <div
-      style={{
-        border: "1px solid var(--primary)",
-        borderRadius: "12px",
-        padding: "20px",
-        background: "#fff",
-        boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
-      }}
-    >
+    <div>
+      {bookingSuccess && (
+        <div
+          style={{
+            padding: "12px 16px",
+            background: "#e8f5e9",
+            border: "1px solid #4caf50",
+            borderRadius: "8px",
+            color: "#2e7d32",
+            marginBottom: "16px",
+            fontWeight: 600,
+          }}
+        >
+          Meeting request sent successfully!
+        </div>
+      )}
+      <div
+        style={{
+          border: "1px solid var(--primary)",
+          borderRadius: "12px",
+          padding: "20px",
+          background: "#fff",
+          boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
+        }}
+      >
       <label style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
-        Search for a teacher
+        {isAdmin ? "Search for a user" : "Search for a teacher"}
       </label>
       <input
         type="text"
@@ -116,6 +135,7 @@ export default function TeacherSearch({ teachers }: TeacherSearchProps) {
       >
         Show availability
       </button>
+      </div>
     </div>
   );
 }

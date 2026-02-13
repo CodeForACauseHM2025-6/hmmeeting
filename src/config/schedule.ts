@@ -187,11 +187,13 @@ export function getMeetingDateTime(dayDate: Date, period: PeriodValue) {
   return { start, end };
 }
 
-export function formatMeetingDateTime(dayDate: Date, period: PeriodValue, locale?: string) {
+export function formatMeetingDateTime(dayDate: Date, period: PeriodValue, dayNumber?: number, locale?: string) {
   const { start, end } = getMeetingDateTime(dayDate, period);
+  const baseDate = formatScheduleDate(start, locale);
+  const baseTime = formatPeriodTimeRange(period);
   return {
-    dateLabel: formatScheduleDate(start, locale),
-    timeLabel: formatPeriodTimeRange(period),
+    dateLabel: dayNumber != null ? `${baseDate}; Day ${dayNumber}` : baseDate,
+    timeLabel: `${period} Period; ${baseTime}`,
     start,
     end,
   };

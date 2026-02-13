@@ -1,9 +1,10 @@
 // src/app/api/user/appointments/route.ts
 // API endpoint to manage appointments.
 
+import crypto from "crypto";
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
-import { sendMeetingEmails } from "@/src/server/email";
+import { sendMeetingEmails, sendStudentConfirmationEmail, sendStudentDeclinedEmail, sendCancellationEmail, sendOfficeHoursNotificationEmail } from "@/src/server/email";
 import {
   PERIODS,
   buildDayDateMap,
@@ -28,7 +29,7 @@ async function getScheduleSnapshot() {
     update: {},
   });
   return {
-    currentWeek: settings.currentWeek === "WEEK1" ? 1 : 2,
+    currentWeek: settings.currentWeek === "WEEK1" ? 1 as const : 2 as const,
     weekSetAt: settings.weekSetAt,
   };
 }
@@ -42,7 +43,7 @@ function getMeetingInfoForAppointment(
   });
   const dayDate = dayDates[appointment.day];
   if (!dayDate) return null;
-  return formatMeetingDateTime(dayDate, appointment.period);
+  return formatMeetingDateTime(dayDate, appointment.period, appointment.day);
 }
 
 async function autoCompleteAppointments(
@@ -105,8 +106,9 @@ export async function GET() {
       where: {
         teacherId,
         OR: [
-          { status: { not: "CANCELLED" } },
+          { status: { notIn: ["CANCELLED", "COMPLETED"] } },
           { status: "CANCELLED", studentCancelled: true },
+          { status: "COMPLETED", completedBy: { not: "TEACHER" } },
         ],
       },
       include: { student: true },
@@ -129,8 +131,9 @@ export async function GET() {
         where: {
           teacherId,
           OR: [
-            { status: { not: "CANCELLED" } },
+            { status: { notIn: ["CANCELLED", "COMPLETED"] } },
             { status: "CANCELLED", studentCancelled: true },
+            { status: "COMPLETED", completedBy: { not: "TEACHER" } },
           ],
         },
         include: { student: true },
@@ -168,16 +171,85 @@ export async function GET() {
     );
   }
 
+  // Admins see their appointments as a booker (same as students)
   if (resolvedRole === "ADMIN") {
-    return Response.json([]);
+    let adminAppointments = await prisma.appointment.findMany({
+      where: {
+        studentId: user.id,
+        OR: [
+          { status: { notIn: ["CANCELLED", "COMPLETED"] } },
+          { status: "CANCELLED", studentCancelled: false },
+          { status: "COMPLETED", completedBy: { not: "STUDENT" } },
+        ],
+      },
+      include: { teacher: { include: { user: true } } },
+      orderBy: [{ day: "asc" }, { period: "asc" }],
+    });
+
+    const didAutoCompleteAdmin = await autoCompleteAppointments(
+      adminAppointments.map((appointment) => ({
+        id: appointment.id,
+        status: appointment.status,
+        day: appointment.day,
+        period: appointment.period,
+        createdAt: appointment.createdAt,
+      })),
+      scheduleSettings
+    );
+
+    if (didAutoCompleteAdmin) {
+      adminAppointments = await prisma.appointment.findMany({
+        where: {
+          studentId: user.id,
+          OR: [
+            { status: { notIn: ["CANCELLED", "COMPLETED"] } },
+            { status: "CANCELLED", studentCancelled: false },
+            { status: "COMPLETED", completedBy: { not: "STUDENT" } },
+          ],
+        },
+        include: { teacher: { include: { user: true } } },
+        orderBy: [{ day: "asc" }, { period: "asc" }],
+      });
+    }
+
+    return Response.json(
+      adminAppointments.map((appointment) => ({
+        ...(() => {
+          const meetingInfo = getMeetingInfoForAppointment(
+            {
+              day: appointment.day,
+              period: appointment.period,
+              createdAt: appointment.createdAt,
+            },
+            scheduleSettings
+          );
+          return {
+            meetingDate: meetingInfo?.dateLabel ?? null,
+            meetingTime: meetingInfo?.timeLabel ?? null,
+          };
+        })(),
+        id: appointment.id,
+        day: appointment.day,
+        period: appointment.period,
+        status: appointment.status,
+        completedBy: appointment.completedBy,
+        room: appointment.room,
+        studentNote: appointment.studentNote,
+        teacherNote: appointment.teacherNote,
+        studentAcknowledgedAt: appointment.studentAcknowledgedAt,
+        teacherName: appointment.teacher.user.fullName,
+        teacherEmail: appointment.teacher.user.email,
+      }))
+    );
   }
 
   let appointments = await prisma.appointment.findMany({
     where: {
       studentId: user.id,
       OR: [
-        { status: { not: "CANCELLED" } },
+        { status: { notIn: ["CANCELLED", "COMPLETED"] } },
         { status: "CANCELLED", studentCancelled: false },
+        { status: "COMPLETED", completedBy: { not: "STUDENT" } },
       ],
     },
     include: { teacher: { include: { user: true } } },
@@ -200,8 +272,9 @@ export async function GET() {
       where: {
         studentId: user.id,
         OR: [
-          { status: { not: "CANCELLED" } },
+          { status: { notIn: ["CANCELLED", "COMPLETED"] } },
           { status: "CANCELLED", studentCancelled: false },
+          { status: "COMPLETED", completedBy: { not: "STUDENT" } },
         ],
       },
       include: { teacher: { include: { user: true } } },
@@ -264,10 +337,6 @@ export async function POST(request: Request) {
     return new Response("Invalid day", { status: 400 });
   }
 
-  if (!studentNote) {
-    return new Response("Reason for meeting is required", { status: 400 });
-  }
-
   const student = await prisma.user.findUnique({
     where: { email: session.user.email },
   });
@@ -277,8 +346,8 @@ export async function POST(request: Request) {
   }
 
   const resolvedRole = resolveRole(session.user.email);
-  if (resolvedRole !== "STUDENT") {
-    return new Response("Only students can book meetings", { status: 403 });
+  if (resolvedRole !== "STUDENT" && resolvedRole !== "ADMIN") {
+    return new Response("Only students and admins can book meetings", { status: 403 });
   }
 
   const teacher = await prisma.teacher.findUnique({
@@ -290,14 +359,29 @@ export async function POST(request: Request) {
     return new Response("Teacher not found", { status: 404 });
   }
 
-  const teacherAppointments = await prisma.appointment.findMany({
-    where: { teacherId, day, status: { in: ["PENDING", "CONFIRMED"] } },
+  // Check if this is an office hours slot
+  const availabilitySlot = await prisma.availability.findFirst({
+    where: { teacherId, day, period },
   });
+  const isOfficeHours = availabilitySlot?.type === "OFFICE_HOURS";
 
-  if (teacherAppointments.some((appointment) => appointment.period === period)) {
-    return new Response("Teacher already has an appointment at this time", { status: 409 });
+  // For regular meetings, note is required
+  if (!isOfficeHours && !studentNote) {
+    return new Response("Reason for meeting is required", { status: 400 });
   }
 
+  // For regular meetings, check teacher conflict (office hours allow multiple students)
+  if (!isOfficeHours) {
+    const teacherAppointments = await prisma.appointment.findMany({
+      where: { teacherId, day, status: { in: ["PENDING", "CONFIRMED"] } },
+    });
+
+    if (teacherAppointments.some((appointment) => appointment.period === period)) {
+      return new Response("Teacher already has an appointment at this time", { status: 409 });
+    }
+  }
+
+  // Student conflict check always applies (students can't double-book themselves)
   const studentAppointments = await prisma.appointment.findMany({
     where: { studentId: student.id, day, status: { in: ["PENDING", "CONFIRMED"] } },
   });
@@ -305,6 +389,49 @@ export async function POST(request: Request) {
   if (studentAppointments.some((appointment) => appointment.period === period)) {
     return new Response("You already have an appointment at this time", { status: 409 });
   }
+
+  const scheduleSettings = await getScheduleSnapshot();
+  const meetingInfo = getMeetingInfoForAppointment(
+    { day, period, createdAt: new Date() },
+    scheduleSettings
+  );
+
+  if (isOfficeHours) {
+    // Office hours: auto-confirm, no approval needed
+    const created = await prisma.appointment.create({
+      data: {
+        day,
+        period,
+        teacherId,
+        studentId: student.id,
+        status: "CONFIRMED",
+        studentNote: studentNote || null,
+        room: teacher.room || "TBD",
+        emailToken: null,
+      },
+    });
+
+    try {
+      await sendOfficeHoursNotificationEmail({
+        studentName: student.fullName,
+        studentEmail: student.email,
+        teacherName: teacher.user.fullName,
+        teacherEmail: teacher.user.email,
+        day,
+        period,
+        dateLabel: meetingInfo?.dateLabel ?? null,
+        timeLabel: meetingInfo?.timeLabel ?? null,
+        room: teacher.room || "TBD",
+      });
+    } catch (error) {
+      console.error("Failed to send office hours notification:", error);
+    }
+
+    return Response.json(created);
+  }
+
+  // Regular meeting: create as PENDING with email token
+  const emailToken = crypto.randomUUID();
 
   const created = await prisma.appointment.create({
     data: {
@@ -314,14 +441,9 @@ export async function POST(request: Request) {
       studentId: student.id,
       status: "PENDING",
       studentNote,
+      emailToken,
     },
   });
-
-  const scheduleSettings = await getScheduleSnapshot();
-  const meetingInfo = getMeetingInfoForAppointment(
-    { day, period, createdAt: new Date() },
-    scheduleSettings
-  );
 
   try {
     await sendMeetingEmails({
@@ -333,6 +455,8 @@ export async function POST(request: Request) {
       period,
       dateLabel: meetingInfo?.dateLabel ?? null,
       timeLabel: meetingInfo?.timeLabel ?? null,
+      emailToken,
+      studentNote,
     });
   } catch (error) {
     console.error("Failed to send meeting emails:", error);
@@ -401,8 +525,36 @@ export async function PATCH(request: Request) {
     }
     const updated = await prisma.appointment.update({
       where: { id },
-      data: { status: "CONFIRMED", room, teacherNote: teacherNote || null },
+      data: { status: "CONFIRMED", room, teacherNote: teacherNote || null, emailToken: null },
     });
+
+    try {
+      const fullAppointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: { student: true, teacher: { include: { user: true } } },
+      });
+      if (fullAppointment) {
+        const scheduleSettings = await getScheduleSnapshot();
+        const meetingInfo = getMeetingInfoForAppointment(
+          { day: fullAppointment.day, period: fullAppointment.period, createdAt: fullAppointment.createdAt },
+          scheduleSettings
+        );
+        await sendStudentConfirmationEmail({
+          studentName: fullAppointment.student.fullName,
+          studentEmail: fullAppointment.student.email,
+          teacherName: fullAppointment.teacher.user.fullName,
+          day: fullAppointment.day,
+          period: fullAppointment.period,
+          dateLabel: meetingInfo?.dateLabel ?? null,
+          timeLabel: meetingInfo?.timeLabel ?? null,
+          room,
+          teacherNote: teacherNote || null,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to send student confirmation email:", err);
+    }
+
     return Response.json(updated);
   }
 
@@ -421,8 +573,36 @@ export async function PATCH(request: Request) {
         teacherNote: teacherNote || null,
         room: null,
         studentCancelled: false,
+        emailToken: null,
       },
     });
+
+    try {
+      const fullAppointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: { student: true, teacher: { include: { user: true } } },
+      });
+      if (fullAppointment) {
+        const scheduleSettings = await getScheduleSnapshot();
+        const meetingInfo = getMeetingInfoForAppointment(
+          { day: fullAppointment.day, period: fullAppointment.period, createdAt: fullAppointment.createdAt },
+          scheduleSettings
+        );
+        await sendStudentDeclinedEmail({
+          studentName: fullAppointment.student.fullName,
+          studentEmail: fullAppointment.student.email,
+          teacherName: fullAppointment.teacher.user.fullName,
+          day: fullAppointment.day,
+          period: fullAppointment.period,
+          dateLabel: meetingInfo?.dateLabel ?? null,
+          timeLabel: meetingInfo?.timeLabel ?? null,
+          teacherNote: teacherNote || null,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to send student declined email:", err);
+    }
+
     return Response.json(updated);
   }
 
@@ -431,7 +611,8 @@ export async function PATCH(request: Request) {
       return new Response("Only confirmed meetings can be completed", { status: 400 });
     }
 
-    if (resolvedRole === "STUDENT") {
+    const isBooker = resolvedRole === "STUDENT" || resolvedRole === "ADMIN";
+    if (isBooker) {
       if (appointment.studentId !== user.id) {
         return new Response("Forbidden", { status: 403 });
       }
@@ -448,7 +629,7 @@ export async function PATCH(request: Request) {
       where: { id },
       data: {
         status: "COMPLETED",
-        completedBy: resolvedRole === "STUDENT" ? "STUDENT" : "TEACHER",
+        completedBy: isBooker ? "STUDENT" : "TEACHER",
       },
     });
 
@@ -456,7 +637,8 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "cancel") {
-    if (resolvedRole === "STUDENT") {
+    const isBooker = resolvedRole === "STUDENT" || resolvedRole === "ADMIN";
+    if (isBooker) {
       if (appointment.studentId !== user.id) {
         return new Response("Forbidden", { status: 403 });
       }
@@ -474,16 +656,57 @@ export async function PATCH(request: Request) {
       data: {
         status: "CANCELLED",
         room: null,
-        studentCancelled: resolvedRole === "STUDENT",
+        studentCancelled: isBooker,
+        emailToken: null,
       },
     });
+
+    try {
+      const fullAppointment = await prisma.appointment.findUnique({
+        where: { id },
+        include: { student: true, teacher: { include: { user: true } } },
+      });
+      if (fullAppointment) {
+        const scheduleSettings = await getScheduleSnapshot();
+        const meetingInfo = getMeetingInfoForAppointment(
+          { day: fullAppointment.day, period: fullAppointment.period, createdAt: fullAppointment.createdAt },
+          scheduleSettings
+        );
+        if (isBooker) {
+          await sendCancellationEmail({
+            recipientName: fullAppointment.teacher.user.fullName,
+            recipientEmail: fullAppointment.teacher.user.email,
+            otherPartyName: fullAppointment.student.fullName,
+            day: fullAppointment.day,
+            period: fullAppointment.period,
+            dateLabel: meetingInfo?.dateLabel ?? null,
+            timeLabel: meetingInfo?.timeLabel ?? null,
+            cancelledByStudent: true,
+          });
+        } else {
+          await sendCancellationEmail({
+            recipientName: fullAppointment.student.fullName,
+            recipientEmail: fullAppointment.student.email,
+            otherPartyName: fullAppointment.teacher.user.fullName,
+            day: fullAppointment.day,
+            period: fullAppointment.period,
+            dateLabel: meetingInfo?.dateLabel ?? null,
+            timeLabel: meetingInfo?.timeLabel ?? null,
+            cancelledByStudent: false,
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Failed to send cancellation email:", err);
+    }
 
     return Response.json(updated);
   }
 
   if (action === "acknowledge") {
     if (appointment.status === "CANCELLED") {
-      if (resolvedRole === "STUDENT") {
+      if (resolvedRole === "STUDENT" || resolvedRole === "ADMIN") {
+        // Booker acknowledges a cancellation from the teacher side
         if (appointment.studentId !== user.id || appointment.studentCancelled) {
           return new Response("Forbidden", { status: 403 });
         }
@@ -504,7 +727,7 @@ export async function PATCH(request: Request) {
     }
 
     if (appointment.status === "COMPLETED") {
-      if (resolvedRole === "STUDENT") {
+      if (resolvedRole === "STUDENT" || resolvedRole === "ADMIN") {
         if (appointment.studentId !== user.id) {
           return new Response("Forbidden", { status: 403 });
         }

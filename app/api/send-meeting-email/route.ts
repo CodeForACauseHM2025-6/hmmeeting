@@ -29,6 +29,8 @@ export async function POST(request: Request) {
       teacherEmail: appointment.teacher.user.email,
       day: appointment.day,
       period: appointment.period,
+      emailToken: appointment.emailToken ?? undefined,
+      studentNote: appointment.studentNote ?? undefined,
     });
 
     return NextResponse.json({ success: true, result });

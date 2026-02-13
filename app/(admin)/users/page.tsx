@@ -43,7 +43,7 @@ async function upsertUserRole(formData: FormData) {
   const role = String(formData.get("role") ?? "").trim();
   const fullNameInput = String(formData.get("fullName") ?? "").trim();
 
-  if (!email || !ROLE_OPTIONS.includes(role as (typeof ROLE_OPTIONS)[number])) {
+  if (!email || !fullNameInput || !ROLE_OPTIONS.includes(role as (typeof ROLE_OPTIONS)[number])) {
     return;
   }
 
@@ -81,6 +81,55 @@ async function upsertUserRole(formData: FormData) {
       update: {},
     });
   }
+
+  revalidatePath("/users");
+}
+
+async function removeUser(formData: FormData) {
+  "use server";
+
+  await requireAdmin();
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email) return;
+
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { teacher: true },
+  });
+  if (!user) return;
+
+  // Remove from role lists
+  const { adminEmails, teacherEmails } = getRoleLists();
+  persistRoleLists({
+    adminEmails: adminEmails.filter((e) => e !== email),
+    teacherEmails: teacherEmails.filter((e) => e !== email),
+  });
+
+  // Delete related records
+  if (user.teacher) {
+    await prisma.appointment.deleteMany({ where: { teacherId: user.teacher.id } });
+    await prisma.availability.deleteMany({ where: { teacherId: user.teacher.id } });
+    await prisma.teacher.delete({ where: { id: user.teacher.id } });
+  }
+  await prisma.appointment.deleteMany({ where: { studentId: user.id } });
+  await prisma.studentAvailability.deleteMany({ where: { userId: user.id } });
+  await prisma.user.delete({ where: { id: user.id } });
+
+  revalidatePath("/users");
+}
+
+async function clearAllSchedules() {
+  "use server";
+
+  await requireAdmin();
+
+  await prisma.availability.deleteMany({});
+  await prisma.studentAvailability.deleteMany({});
+  await prisma.appointment.updateMany({
+    where: { status: { in: ["PENDING", "CONFIRMED"] } },
+    data: { status: "CANCELLED", emailToken: null },
+  });
 
   revalidatePath("/users");
 }
@@ -153,7 +202,8 @@ export default async function AdminUsersPage() {
         <form action={upsertUserRole} style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
           <input
             name="fullName"
-            placeholder="Full name (optional)"
+            placeholder="Full name"
+            required
             style={{
               padding: "10px 12px",
               borderRadius: "8px",
@@ -261,6 +311,8 @@ export default async function AdminUsersPage() {
         users={usersWithRoles}
         roleOptions={ROLE_OPTIONS}
         upsertAction={upsertUserRole}
+        removeAction={removeUser}
+        clearAllAction={clearAllSchedules}
       />
     </div>
   );

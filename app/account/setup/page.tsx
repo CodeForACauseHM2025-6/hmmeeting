@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
 import { DAYS, PERIODS, type PeriodValue } from '@/src/config/schedule';
@@ -9,13 +9,20 @@ import { DAYS, PERIODS, type PeriodValue } from '@/src/config/schedule';
 type FreePeriod = {
   day: number;
   period: PeriodValue;
+  type?: string;
 };
 
 const PRIMARY = 'var(--primary)';
 
+type SlotState = 'FREE' | 'OFFICE_HOURS';
+
 export default function SetNamePage() {
   const [fullName, setFullName] = useState('');
+  // For students/admins: Set<string> of selected free periods
   const [selectedSlots, setSelectedSlots] = useState<Set<string>>(new Set());
+  // For teachers: Map<string, SlotState> tracking each slot's state
+  const [slotStates, setSlotStates] = useState<Map<string, SlotState>>(new Map());
+  const [defaultRoom, setDefaultRoom] = useState('');
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -31,6 +38,8 @@ export default function SetNamePage() {
 
   const { data: session, status } = useSession();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const viewUserEmail = searchParams.get('viewUser');
 
   const email = session?.user?.email ?? '';
 
@@ -56,20 +65,32 @@ export default function SetNamePage() {
       setFullName(resolvedName);
       setRole(resolvedRole);
 
-      let initialSlots: FreePeriod[] = [];
-      if ((resolvedRole === 'STUDENT' || resolvedRole === 'ADMIN') && Array.isArray(data?.studentAvailability)) {
-        initialSlots = data.studentAvailability;
+      if (resolvedRole === 'TEACHER') {
+        // Load teacher slot states (with type)
+        const stateMap = new Map<string, SlotState>();
+        if (Array.isArray(data?.teacher?.availability)) {
+          for (const slot of data.teacher.availability) {
+            const key = `${slot.day}-${slot.period}`;
+            stateMap.set(key, slot.type === 'OFFICE_HOURS' ? 'OFFICE_HOURS' : 'FREE');
+          }
+        }
+        setSlotStates(stateMap);
+        // Load default room
+        setDefaultRoom(data?.teacher?.room ?? '');
+        setLastSavedKey(buildTeacherSaveKey(resolvedName, stateMap, data?.teacher?.room ?? ''));
+      } else {
+        // Student/Admin: use simple Set
+        let initialSlots: FreePeriod[] = [];
+        if (Array.isArray(data?.studentAvailability)) {
+          initialSlots = data.studentAvailability;
+        }
+        const initialSet = new Set(
+          initialSlots.map((slot: FreePeriod) => `${slot.day}-${slot.period}`)
+        );
+        setSelectedSlots(initialSet);
+        setLastSavedKey(buildStudentSaveKey(resolvedName, initialSet));
       }
 
-      if (resolvedRole === 'TEACHER' && Array.isArray(data?.teacher?.availability)) {
-        initialSlots = data.teacher.availability;
-      }
-
-      const initialSet = new Set(
-        initialSlots.map((slot: FreePeriod) => `${slot.day}-${slot.period}`)
-      );
-      setSelectedSlots(initialSet);
-      setLastSavedKey(buildSaveKey(resolvedName, initialSet));
       setLoadingProfile(false);
       setHasInitialized(true);
     }
@@ -77,6 +98,7 @@ export default function SetNamePage() {
     loadProfile();
   }, [session?.user?.email, session?.user?.name]);
 
+  // Student/Admin toggle (binary: busy/free)
   const toggleSlot = (day: number, period: PeriodValue) => {
     setSelectedSlots((prev) => {
       const next = new Set(prev);
@@ -90,18 +112,51 @@ export default function SetNamePage() {
     });
   };
 
-  const buildSaveKey = (name: string, slots: Set<string>) => {
-    const slotKey = Array.from(slots).sort().join(',');
-    return `${name.trim()}|${slotKey}`;
+  // Teacher toggle (3-state: Busy → FREE → OFFICE_HOURS → Busy)
+  const cycleSlot = (day: number, period: PeriodValue) => {
+    setSlotStates((prev) => {
+      const next = new Map(prev);
+      const key = `${day}-${period}`;
+      const current = next.get(key);
+      if (!current) {
+        // Busy → FREE
+        next.set(key, 'FREE');
+      } else if (current === 'FREE') {
+        // FREE → OFFICE_HOURS
+        next.set(key, 'OFFICE_HOURS');
+      } else {
+        // OFFICE_HOURS → Busy
+        next.delete(key);
+      }
+      return next;
+    });
   };
 
+  const buildStudentSaveKey = (name: string, slots: Set<string>) => {
+    const slotKey = Array.from(slots).sort().join(',');
+    return `S|${name.trim()}|${slotKey}`;
+  };
+
+  const buildTeacherSaveKey = (name: string, states: Map<string, SlotState>, room: string) => {
+    const stateEntries = Array.from(states.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}:${v}`)
+      .join(',');
+    return `T|${name.trim()}|${stateEntries}|${room.trim()}`;
+  };
+
+  // Auto-save effect
   useEffect(() => {
     if (status !== 'authenticated' || loadingProfile || !hasInitialized) return;
 
     const trimmedName = fullName.trim();
     if (!trimmedName) return;
 
-    const currentKey = buildSaveKey(trimmedName, selectedSlots);
+    const currentKey =
+      role === 'TEACHER'
+        ? buildTeacherSaveKey(trimmedName, slotStates, defaultRoom)
+        : buildStudentSaveKey(trimmedName, selectedSlots);
+
     if (currentKey === lastSavedKey) return;
     if (saving) return;
 
@@ -110,18 +165,32 @@ export default function SetNamePage() {
       setMessage('Saving...');
 
       try {
-        const freePeriods = Array.from(selectedSlots).map((slot) => {
-          const [dayString, period] = slot.split('-');
-          return { day: Number(dayString), period } as FreePeriod;
-        });
+        let freePeriods: FreePeriod[];
+        if (role === 'TEACHER') {
+          freePeriods = Array.from(slotStates.entries()).map(([key, type]) => {
+            const [dayString, period] = key.split('-');
+            return { day: Number(dayString), period: period as PeriodValue, type };
+          });
+        } else {
+          freePeriods = Array.from(selectedSlots).map((slot) => {
+            const [dayString, period] = slot.split('-');
+            return { day: Number(dayString), period: period as PeriodValue };
+          });
+        }
+
+        const bodyPayload: Record<string, unknown> = {
+          fullName: trimmedName,
+          freePeriods,
+        };
+
+        if (role === 'TEACHER') {
+          bodyPayload.room = defaultRoom.trim();
+        }
 
         const response = await fetch('/api/user/information', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fullName: trimmedName,
-            freePeriods,
-          }),
+          body: JSON.stringify(bodyPayload),
         });
 
         if (!response.ok) {
@@ -134,7 +203,10 @@ export default function SetNamePage() {
           setRole(payload.role);
         }
 
-        const latestKey = buildSaveKey(trimmedName, selectedSlots);
+        const latestKey =
+          role === 'TEACHER'
+            ? buildTeacherSaveKey(trimmedName, slotStates, defaultRoom)
+            : buildStudentSaveKey(trimmedName, selectedSlots);
         if (latestKey === currentKey) {
           setLastSavedKey(latestKey);
           setMessage('All changes saved.');
@@ -147,17 +219,19 @@ export default function SetNamePage() {
     }, 600);
 
     return () => clearTimeout(timeout);
-  }, [fullName, selectedSlots, status, loadingProfile, hasInitialized, lastSavedKey, saving]);
+  }, [fullName, selectedSlots, slotStates, defaultRoom, status, loadingProfile, hasInitialized, lastSavedKey, saving, role]);
 
   if (status === 'loading' || loadingProfile) {
     return <div style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
   }
 
+  const isViewOnly = !!viewUserEmail;
+
   return (
     <div style={{ padding: '50px', maxWidth: '1000px', margin: '0 auto' }}>
       <div>
         <h1 style={{ fontSize: '28px', marginBottom: '12px', color: PRIMARY }}>
-          Account Settings
+          {isViewOnly ? 'User Schedule' : 'Account Settings'}
         </h1>
       </div>
 
@@ -183,12 +257,14 @@ export default function SetNamePage() {
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Enter your name"
                 required
+                disabled={isViewOnly}
                 style={{
                   width: '100%',
                   padding: '10px 12px',
                   fontSize: '16px',
                   border: '1px solid #ccc',
                   borderRadius: '8px',
+                  backgroundColor: isViewOnly ? '#f2f2f2' : undefined,
                 }}
               />
             </div>
@@ -229,6 +305,32 @@ export default function SetNamePage() {
               </div>
             </div>
           </div>
+
+          {/* Default Room input for teachers */}
+          {role === 'TEACHER' && !isViewOnly && (
+            <div style={{ marginTop: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+                Default Room (for office hours)
+              </label>
+              <input
+                type="text"
+                value={defaultRoom}
+                onChange={(e) => setDefaultRoom(e.target.value)}
+                placeholder="e.g. Room 204"
+                style={{
+                  width: '100%',
+                  maxWidth: '300px',
+                  padding: '10px 12px',
+                  fontSize: '16px',
+                  border: '1px solid #ccc',
+                  borderRadius: '8px',
+                }}
+              />
+              <p style={{ color: '#666', fontSize: '13px', marginTop: '4px' }}>
+                This room will be auto-filled when students book your office hours.
+              </p>
+            </div>
+          )}
         </div>
 
         {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && (
@@ -247,8 +349,51 @@ export default function SetNamePage() {
             <p style={{ color: '#555', marginBottom: '16px' }}>
               {role === 'TEACHER'
                 ? 'Tap the periods you are available to meet. Students will only see periods you select.'
-                : 'Tap the periods you are available to meet. This will be used to match with teacher availability.'}
+                : 'Tap the periods you are available to meet. This will be used to match with user availability.'}
             </p>
+
+            {/* Color legend for teachers */}
+            {role === 'TEACHER' && (
+              <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '4px',
+                      border: `1px solid ${PRIMARY}`,
+                      background: '#fff',
+                    }}
+                  />
+                  <span style={{ fontSize: '13px', color: '#555' }}>Busy</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '4px',
+                      border: `1px solid ${PRIMARY}`,
+                      background: '#2e7d32',
+                    }}
+                  />
+                  <span style={{ fontSize: '13px', color: '#555' }}>Free</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span
+                    style={{
+                      width: '20px',
+                      height: '20px',
+                      borderRadius: '4px',
+                      border: `1px solid ${PRIMARY}`,
+                      background: '#7b1fa2',
+                    }}
+                  />
+                  <span style={{ fontSize: '13px', color: '#555' }}>Office Hours</span>
+                </div>
+              </div>
+            )}
+
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
@@ -267,12 +412,52 @@ export default function SetNamePage() {
                       <td style={{ padding: '8px 12px', fontWeight: 600 }}>{period}</td>
                       {DAYS.map((day) => {
                         const key = `${day}-${period}`;
+
+                        if (role === 'TEACHER') {
+                          const state = slotStates.get(key);
+                          let bg = '#fff';
+                          let color = PRIMARY;
+                          let label = 'Busy';
+                          if (state === 'FREE') {
+                            bg = '#2e7d32';
+                            color = '#fff';
+                            label = 'Free';
+                          } else if (state === 'OFFICE_HOURS') {
+                            bg = '#7b1fa2';
+                            color = '#fff';
+                            label = 'OH';
+                          }
+                          return (
+                            <td key={key} style={{ padding: '8px 12px' }}>
+                              <button
+                                type="button"
+                                onClick={() => cycleSlot(day, period)}
+                                disabled={isViewOnly}
+                                style={{
+                                  width: '100%',
+                                  padding: '10px 0',
+                                  borderRadius: '8px',
+                                  border: `1px solid ${PRIMARY}`,
+                                  backgroundColor: bg,
+                                  color,
+                                  fontWeight: 600,
+                                  cursor: isViewOnly ? 'default' : 'pointer',
+                                }}
+                              >
+                                {label}
+                              </button>
+                            </td>
+                          );
+                        }
+
+                        // Student/Admin: binary toggle
                         const active = selectedSlots.has(key);
                         return (
                           <td key={key} style={{ padding: '8px 12px' }}>
                             <button
                               type="button"
                               onClick={() => toggleSlot(day, period)}
+                              disabled={isViewOnly}
                               style={{
                                 width: '100%',
                                 padding: '10px 0',
@@ -281,7 +466,7 @@ export default function SetNamePage() {
                                 backgroundColor: active ? PRIMARY : '#fff',
                                 color: active ? '#fff' : PRIMARY,
                                 fontWeight: 600,
-                                cursor: 'pointer',
+                                cursor: isViewOnly ? 'default' : 'pointer',
                               }}
                             >
                               {active ? 'Free' : 'Busy'}
@@ -297,23 +482,25 @@ export default function SetNamePage() {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          style={{
-            marginTop: '24px',
-            padding: '12px 20px',
-            fontSize: '16px',
-            backgroundColor: PRIMARY,
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            width: '100%',
-          }}
-        >
-          Logout
-        </button>
+        {!isViewOnly && (
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            style={{
+              marginTop: '24px',
+              padding: '12px 20px',
+              fontSize: '16px',
+              backgroundColor: PRIMARY,
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              width: '100%',
+            }}
+          >
+            Logout
+          </button>
+        )}
       </div>
 
       {message && <p style={{ marginTop: '20px', color: PRIMARY }}>{message}</p>}

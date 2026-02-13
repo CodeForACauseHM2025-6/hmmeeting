@@ -10,6 +10,7 @@ type AvailabilityInput = {
   day: number;
   period: PeriodValue;
   recurring?: boolean;
+  type?: string;
 };
 
 async function getTeacherForSession(email: string) {
@@ -74,11 +75,17 @@ export async function GET(request: Request) {
       activeAppointments.map((appointment) => `${appointment.day}-${appointment.period}`)
     );
 
+    // Office hours slots remain visible even when booked (multiple students allowed)
     const filteredAvailability = availability.filter(
-      (slot) => !blockedSet.has(`${slot.day}-${slot.period}`)
+      (slot) => slot.type === "OFFICE_HOURS" || !blockedSet.has(`${slot.day}-${slot.period}`)
     );
 
-    return Response.json(filteredAvailability);
+    return Response.json(filteredAvailability.map((slot) => ({
+      id: slot.id,
+      day: slot.day,
+      period: slot.period,
+      type: slot.type,
+    })));
   }
 
   const { error, teacher } = await getTeacherForSession(session.user.email);
@@ -103,11 +110,17 @@ export async function GET(request: Request) {
     activeAppointments.map((appointment) => `${appointment.day}-${appointment.period}`)
   );
 
+  // Office hours slots remain visible even when booked
   const filteredAvailability = availability.filter(
-    (slot) => !blockedSet.has(`${slot.day}-${slot.period}`)
+    (slot) => slot.type === "OFFICE_HOURS" || !blockedSet.has(`${slot.day}-${slot.period}`)
   );
 
-  return Response.json(filteredAvailability);
+  return Response.json(filteredAvailability.map((slot) => ({
+    id: slot.id,
+    day: slot.day,
+    period: slot.period,
+    type: slot.type,
+  })));
 }
 
 export async function POST(request: Request) {
@@ -228,6 +241,7 @@ export async function PUT(request: Request) {
         day: slot.day,
         period: slot.period,
         recurring: slot.recurring ?? true,
+        type: slot.type === "OFFICE_HOURS" ? "OFFICE_HOURS" : "FREE",
       })),
     });
   }
