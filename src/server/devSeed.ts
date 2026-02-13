@@ -1,7 +1,8 @@
 import { prisma } from "@/src/server/db";
 import { DEV_USERS, type DevUser } from "@/src/config/devUsers";
+import type { Period } from "@prisma/client";
 
-type ScheduleEntry = { day: number; period: string };
+type ScheduleEntry = { day: number; period: Period };
 
 function uniqueSchedule(entries: ScheduleEntry[]) {
   return Array.from(
