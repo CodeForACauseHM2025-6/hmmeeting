@@ -27,7 +27,7 @@ async function getScheduleSnapshot() {
     update: {},
   });
   return {
-    currentWeek: settings.currentWeek === "WEEK1" ? 1 : 2,
+    currentWeek: settings.currentWeek === "WEEK1" ? 1 as const : 2 as const,
     weekSetAt: settings.weekSetAt,
   };
 }
