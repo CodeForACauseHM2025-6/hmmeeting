@@ -2,22 +2,25 @@
 set -e
 
 # ============================================================
-#  HMeeting Deployment Script
+#  HMeeting Bare-Metal Deployment Script
+#  Run this ON YOUR LINODE after cloning the repo.
+#  Usage: ./deploy.sh [command]
 #
 #  Commands:
-#    setup     - First-time server setup (Docker, firewall, etc.)
-#    init      - First-time app deploy (env file, SSL cert, build)
-#    deploy    - Rebuild and restart the app (for updates)
+#    setup     - First-time server setup (Node.js, pm2, firewall)
+#    init      - First-time app deploy (env, install, build, start)
+#    deploy    - Pull latest code, rebuild, restart
 #    logs      - Tail app logs
-#    ssl       - Request/renew SSL certificate
 #    backup    - Backup SQLite database
 #    restore   - Restore SQLite database from backup
-#    stop      - Stop all containers
-#    status    - Show container status
+#    stop      - Stop the app
+#    start     - Start the app
+#    status    - Show app status
 # ============================================================
 
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$APP_DIR/backups"
+DATA_DIR="$APP_DIR/data"
 
 # Colors
 RED='\033[0;31m'
@@ -30,36 +33,34 @@ warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
 # ----------------------------------------------------------
-# setup: Install Docker, configure firewall
+# setup: Install Node.js, PM2, configure firewall
 # ----------------------------------------------------------
 cmd_setup() {
     log "Updating system packages..."
     sudo apt-get update && sudo apt-get upgrade -y
 
-    log "Installing Docker..."
-    if ! command -v docker &> /dev/null; then
-        curl -fsSL https://get.docker.com | sudo sh
-        sudo usermod -aG docker "$USER"
-        log "Docker installed. You may need to log out and back in for group changes."
+    log "Installing Node.js 20 LTS..."
+    if ! command -v node &> /dev/null; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        sudo apt-get install -y nodejs
     else
-        log "Docker already installed."
+        log "Node.js already installed: $(node --version)"
     fi
 
-    log "Installing Docker Compose plugin..."
-    if ! docker compose version &> /dev/null; then
-        sudo apt-get install -y docker-compose-plugin
+    log "Installing PM2 (process manager)..."
+    if ! command -v pm2 &> /dev/null; then
+        sudo npm install -g pm2
+        pm2 startup systemd -u "$USER" --hp "$HOME" | tail -1 | sudo bash
     else
-        log "Docker Compose already installed."
+        log "PM2 already installed."
     fi
 
     log "Configuring firewall (UFW)..."
     sudo ufw allow OpenSSH
-    sudo ufw allow 80/tcp
-    sudo ufw allow 443/tcp
+    sudo ufw allow 3000/tcp
     sudo ufw --force enable
 
-    log "Setup complete!"
-    log "IMPORTANT: Log out and back in so Docker group takes effect, then run:"
+    log "Setup complete! Now run:"
     echo "  ./deploy.sh init"
 }
 
@@ -69,93 +70,77 @@ cmd_setup() {
 cmd_init() {
     cd "$APP_DIR"
 
-    # Create .env.production if it doesn't exist
+    # Check for .env.production
     if [ ! -f .env.production ]; then
-        if [ -f .env.production.example ]; then
-            cp .env.production.example .env.production
-            warn "Created .env.production from template."
-            warn "Edit it now with your real values:"
-            echo "  nano .env.production"
-            echo ""
-            warn "Then re-run: ./deploy.sh init"
-            exit 0
-        else
-            err ".env.production.example not found. Cannot continue."
-        fi
+        warn ".env.production not found. Create it now:"
+        echo ""
+        echo "  nano .env.production"
+        echo ""
+        echo "Paste the following and fill in your real values:"
+        echo "----------------------------------------------"
+        echo "GOOGLE_CLIENT_ID=your-google-client-id"
+        echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id"
+        echo "GOOGLE_CLIENT_SECRET=your-google-client-secret"
+        echo "NEXTAUTH_SECRET=$(openssl rand -base64 32)"
+        echo "APP_URL=http://YOUR_LINODE_IP:3000"
+        echo "NEXTAUTH_URL=http://YOUR_LINODE_IP:3000"
+        echo "RESEND_API_KEY=re_your_resend_api_key"
+        echo "----------------------------------------------"
+        echo ""
+        warn "Then re-run: ./deploy.sh init"
+        exit 0
     fi
 
-    # Validate required env vars are set
+    # Validate required env vars
+    set -a
     source .env.production
+    set +a
+
     if [ -z "$NEXTAUTH_SECRET" ] || [ "$NEXTAUTH_SECRET" = "generate-with-openssl-rand-base64-32" ]; then
-        err "NEXTAUTH_SECRET is not set in .env.production. Generate one with: openssl rand -base64 32"
+        err "NEXTAUTH_SECRET not set. Generate with: openssl rand -base64 32"
     fi
     if [ -z "$GOOGLE_CLIENT_ID" ] || [ "$GOOGLE_CLIENT_ID" = "your-google-client-id" ]; then
-        err "GOOGLE_CLIENT_ID is not set in .env.production."
+        err "GOOGLE_CLIENT_ID not set in .env.production."
+    fi
+    if [ -z "$APP_URL" ] || [ "$APP_URL" = "http://YOUR_LINODE_IP:3000" ]; then
+        err "APP_URL not set. Use http://YOUR_IP:3000"
     fi
 
-    # Read domain from env
-    DOMAIN=$(echo "$APP_URL" | sed 's|https\?://||' | sed 's|/.*||')
-    if [ -z "$DOMAIN" ] || [ "$DOMAIN" = "yourdomain.com" ]; then
-        err "APP_URL is not set properly in .env.production."
-    fi
+    # Create data directory for production SQLite
+    mkdir -p "$DATA_DIR"
 
-    log "Domain detected: $DOMAIN"
+    log "Installing dependencies..."
+    npm ci
 
-    # Replace placeholder in nginx.conf
-    sed -i "s/YOUR_DOMAIN/$DOMAIN/g" nginx.conf
-    log "Updated nginx.conf with domain: $DOMAIN"
+    log "Generating Prisma client..."
+    npx prisma generate
 
-    # Build and start (HTTP only first, for SSL cert)
-    log "Building Docker images..."
-    docker compose build
+    log "Running database migrations..."
+    DATABASE_URL="file:$DATA_DIR/prod.db" npx prisma migrate deploy
 
-    log "Starting containers (HTTP only for SSL setup)..."
-    docker compose up -d app nginx
+    log "Building Next.js..."
+    # Load env vars so NEXT_PUBLIC_ vars are baked into the build
+    set -a
+    source .env.production
+    set +a
+    npm run build
 
-    # Request SSL certificate
-    log "Requesting SSL certificate from Let's Encrypt..."
-    read -p "Enter your email for Let's Encrypt notifications: " LE_EMAIL
-    docker compose run --rm certbot certonly \
-        --webroot \
-        --webroot-path=/var/www/certbot \
-        --email "$LE_EMAIL" \
-        --agree-tos \
-        --no-eff-email \
-        -d "$DOMAIN"
-
-    if [ $? -eq 0 ]; then
-        log "SSL certificate obtained!"
-
-        # Enable HTTPS in nginx.conf
-        # Uncomment the SSL server block
-        sed -i 's/^# server {/server {/' nginx.conf
-        sed -i 's/^#     listen 443/    listen 443/' nginx.conf
-        sed -i 's/^#     server_name/    server_name/' nginx.conf
-        sed -i 's/^#$//' nginx.conf
-        sed -i 's/^#     ssl_certificate /    ssl_certificate /' nginx.conf
-        sed -i 's/^#     ssl_certificate_key/    ssl_certificate_key/' nginx.conf
-        sed -i 's/^#     location/    location/' nginx.conf
-        sed -i 's/^#         proxy_/        proxy_/' nginx.conf
-        sed -i 's/^#         proxy_cache_bypass/        proxy_cache_bypass/' nginx.conf
-        sed -i 's/^#     }/    }/' nginx.conf
-        sed -i 's/^# }/}/' nginx.conf
-
-        log "Restarting nginx with HTTPS..."
-        docker compose restart nginx
-
-        # Start certbot renewal daemon
-        docker compose up -d certbot
-    else
-        warn "SSL certificate request failed. You can retry with: ./deploy.sh ssl"
-        warn "App is running on HTTP only for now."
-    fi
+    log "Starting app with PM2..."
+    DATABASE_URL="file:$DATA_DIR/prod.db" pm2 start npm --name "hmmeeting" -- start
+    pm2 save
 
     log "Deployment complete!"
-    log "Your app should be live at: $APP_URL"
+    log "Your app is live at: $APP_URL"
+    echo ""
+    log "Useful commands:"
+    echo "  ./deploy.sh logs      View logs"
+    echo "  ./deploy.sh status    Check status"
+    echo "  ./deploy.sh deploy    Deploy updates"
+    echo "  ./deploy.sh backup    Backup database"
 }
 
 # ----------------------------------------------------------
-# deploy: Rebuild and restart (for updates)
+# deploy: Pull latest, rebuild, restart
 # ----------------------------------------------------------
 cmd_deploy() {
     cd "$APP_DIR"
@@ -163,25 +148,27 @@ cmd_deploy() {
     log "Pulling latest code..."
     git pull
 
-    log "Rebuilding Docker images..."
-    docker compose build
+    log "Installing dependencies..."
+    npm ci
 
-    log "Restarting containers..."
-    docker compose up -d
+    log "Generating Prisma client..."
+    npx prisma generate
 
-    log "Deploy complete! Checking status..."
-    docker compose ps
-}
+    log "Running database migrations..."
+    DATABASE_URL="file:$DATA_DIR/prod.db" npx prisma migrate deploy
 
-# ----------------------------------------------------------
-# ssl: Request or renew SSL certificate
-# ----------------------------------------------------------
-cmd_ssl() {
-    cd "$APP_DIR"
-    log "Renewing SSL certificates..."
-    docker compose run --rm certbot renew
-    docker compose restart nginx
-    log "SSL renewal complete."
+    log "Building Next.js..."
+    set -a
+    source .env.production
+    set +a
+    npm run build
+
+    log "Restarting app..."
+    pm2 restart hmmeeting
+    pm2 save
+
+    log "Deploy complete!"
+    pm2 status
 }
 
 # ----------------------------------------------------------
@@ -193,13 +180,14 @@ cmd_backup() {
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     BACKUP_FILE="$BACKUP_DIR/prod_backup_$TIMESTAMP.db"
 
-    # Get the volume mount path and copy from container
-    docker compose exec app sh -c "cp /app/data/prod.db /tmp/backup.db"
-    docker compose cp app:/tmp/backup.db "$BACKUP_FILE"
-
-    log "Database backed up to: $BACKUP_FILE"
-    log "Total backups:"
-    ls -lh "$BACKUP_DIR"
+    if [ -f "$DATA_DIR/prod.db" ]; then
+        cp "$DATA_DIR/prod.db" "$BACKUP_FILE"
+        log "Database backed up to: $BACKUP_FILE"
+        log "Total backups:"
+        ls -lh "$BACKUP_DIR"
+    else
+        err "No database found at $DATA_DIR/prod.db"
+    fi
 }
 
 # ----------------------------------------------------------
@@ -228,34 +216,35 @@ cmd_restore() {
         exit 0
     fi
 
-    docker compose cp "$BACKUP_FILE" app:/app/data/prod.db
-    docker compose restart app
+    pm2 stop hmmeeting
+    cp "$BACKUP_FILE" "$DATA_DIR/prod.db"
+    pm2 start hmmeeting
     log "Database restored from: $2"
 }
 
 # ----------------------------------------------------------
-# logs: Tail container logs
+# logs / start / stop / status
 # ----------------------------------------------------------
 cmd_logs() {
-    cd "$APP_DIR"
-    docker compose logs -f --tail=100
+    pm2 logs hmmeeting --lines 100
 }
 
-# ----------------------------------------------------------
-# stop: Stop all containers
-# ----------------------------------------------------------
 cmd_stop() {
-    cd "$APP_DIR"
-    docker compose down
-    log "All containers stopped."
+    pm2 stop hmmeeting
+    log "App stopped."
 }
 
-# ----------------------------------------------------------
-# status: Show container status
-# ----------------------------------------------------------
-cmd_status() {
+cmd_start() {
     cd "$APP_DIR"
-    docker compose ps
+    set -a
+    source .env.production
+    set +a
+    DATABASE_URL="file:$DATA_DIR/prod.db" pm2 start hmmeeting
+    log "App started."
+}
+
+cmd_status() {
+    pm2 status
 }
 
 # ----------------------------------------------------------
@@ -265,10 +254,10 @@ case "${1:-}" in
     setup)   cmd_setup ;;
     init)    cmd_init ;;
     deploy)  cmd_deploy ;;
-    ssl)     cmd_ssl ;;
     backup)  cmd_backup ;;
     restore) cmd_restore "$@" ;;
     logs)    cmd_logs ;;
+    start)   cmd_start ;;
     stop)    cmd_stop ;;
     status)  cmd_status ;;
     *)
@@ -277,14 +266,14 @@ case "${1:-}" in
         echo "Usage: ./deploy.sh <command>"
         echo ""
         echo "Commands:"
-        echo "  setup     First-time server setup (Docker, firewall)"
-        echo "  init      First-time app deploy (env, SSL, build)"
-        echo "  deploy    Rebuild and restart (for updates)"
+        echo "  setup     First-time server setup (Node.js, PM2, firewall)"
+        echo "  init      First-time app deploy (install, build, start)"
+        echo "  deploy    Pull latest, rebuild, restart"
         echo "  logs      Tail application logs"
-        echo "  ssl       Renew SSL certificate"
         echo "  backup    Backup SQLite database"
         echo "  restore   Restore database from backup"
-        echo "  stop      Stop all containers"
-        echo "  status    Show container status"
+        echo "  start     Start the app"
+        echo "  stop      Stop the app"
+        echo "  status    Show app status"
         ;;
 esac
