@@ -5,6 +5,9 @@ import Credentials from "next-auth/providers/credentials";
 import { DEV_USERS } from "@/src/config/devUsers";
 import { ensureDevUsers } from "@/src/server/devSeed";
 
+console.log("GOOGLE_CLIENT_ID =", process.env.GOOGLE_CLIENT_ID);
+
+
 export const {
   handlers: { GET, POST }, // GET and POST handlers for the auth routes
   auth, // auth function to get the user's session
@@ -42,6 +45,7 @@ export const {
         ]
       : []),
   ],
+  secret: process.env.AUTH_SECRET,
   callbacks: {
     async signIn({ user, account }) {
       if (account?.provider === "dev-credentials") {

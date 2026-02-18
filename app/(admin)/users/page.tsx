@@ -136,19 +136,24 @@ async function clearAllSchedules() {
 
 async function updateScheduleWeek(formData: FormData) {
   "use server";
-
   await requireAdmin();
 
   const weekValue = String(formData.get("week") ?? "");
-  if (weekValue !== "1" && weekValue !== "2") {
-    return;
-  }
+  if (weekValue !== "1" && weekValue !== "2") return;
+
+  // Snap to the most recent Monday
+  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const day = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
+  const daysToMonday = day === 0 ? 6 : day - 1;
+  const anchorMonday = new Date(now);
+  anchorMonday.setDate(now.getDate() - daysToMonday);
+  anchorMonday.setHours(12, 0, 0, 0); // noon to avoid timezone edge cases
 
   const currentWeek = weekValue === "1" ? "WEEK1" : "WEEK2";
   await prisma.appSettings.upsert({
     where: { id: SETTINGS_ID },
-    create: { id: SETTINGS_ID, currentWeek, weekSetAt: new Date() },
-    update: { currentWeek, weekSetAt: new Date() },
+    create: { id: SETTINGS_ID, currentWeek, weekSetAt: anchorMonday },
+    update: { currentWeek, weekSetAt: anchorMonday },
   });
 
   revalidatePath("/users");

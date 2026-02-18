@@ -49,11 +49,12 @@ function getZonedDateParts(date: Date, timeZone: string): DateParts {
   return { year, month, day };
 }
 
-function getTimeZoneOffsetMs(date: Date, timeZone: string) {
-  const zonedDate = new Date(date.toLocaleString("en-US", { timeZone }));
-  return date.getTime() - zonedDate.getTime();
-}
 
+function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
+  const utcStr = date.toLocaleString("en-US", { timeZone: "UTC" });
+  const tzStr = date.toLocaleString("en-US", { timeZone });
+  return new Date(utcStr).getTime() - new Date(tzStr).getTime();
+}
 function makeZonedDate(
   parts: DateParts & { hour: number; minute: number },
   timeZone: string

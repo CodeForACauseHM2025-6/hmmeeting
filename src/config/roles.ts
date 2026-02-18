@@ -1,13 +1,13 @@
 import { DEV_USERS } from "./devUsers";
 
 export const ADMIN_EMAILS: string[] = [
-  // "principal@horacemann.org",
-//   "michael_trokel@horacemann.org",
+    //"principal@horacemann.org",
+    //"brighten_sun@horacemann.org",
 ];
 
 export const TEACHER_EMAILS: string[] = [
-  // "teacher@horacemann.org",
-//   "michael_trokel@horacemann.org",
+    //"teacher@horacemann.org",
+    //"brighten_sun@horacemann.org",
 ];
 
 export type RoleValue = "STUDENT" | "TEACHER" | "ADMIN";
