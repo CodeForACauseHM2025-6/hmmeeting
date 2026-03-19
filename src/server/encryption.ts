@@ -1,13 +1,56 @@
 import crypto from "crypto";
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand,
+} from "@aws-sdk/client-secrets-manager";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
+// Cached key — populated once by initEncryption() at app startup.
+let cachedKey: Buffer | null = null;
+let initialized = false;
+
+/**
+ * Initialize encryption by fetching the key from AWS Secrets Manager.
+ * Falls back to ENCRYPTION_KEY env var if AWS_SECRET_NAME is not set.
+ * Must be called once before any encrypt/decrypt operations (see instrumentation.ts).
+ */
+export async function initEncryption(): Promise<void> {
+  if (initialized) return;
+
+  const secretName = process.env.AWS_SECRET_NAME;
+  const region = process.env.AWS_REGION;
+
+  if (secretName && region) {
+    const client = new SecretsManagerClient({ region });
+    const response = await client.send(
+      new GetSecretValueCommand({ SecretId: secretName })
+    );
+    const secretString = response.SecretString;
+    if (!secretString) {
+      throw new Error(`Secret ${secretName} has no string value`);
+    }
+    // The secret can be either a raw base64 key or a JSON object with an "ENCRYPTION_KEY" field
+    let keyBase64: string;
+    try {
+      const parsed = JSON.parse(secretString);
+      keyBase64 = parsed.ENCRYPTION_KEY ?? parsed.encryptionKey ?? secretString;
+    } catch {
+      keyBase64 = secretString;
+    }
+    cachedKey = Buffer.from(keyBase64, "base64");
+  } else if (process.env.ENCRYPTION_KEY) {
+    // Fallback for local development
+    cachedKey = Buffer.from(process.env.ENCRYPTION_KEY, "base64");
+  }
+
+  initialized = true;
+}
+
 function getKey(): Buffer | null {
-  const key = process.env.ENCRYPTION_KEY;
-  if (!key) return null;
-  return Buffer.from(key, "base64");
+  return cachedKey;
 }
 
 /**
@@ -87,8 +130,8 @@ export function safeDecrypt(value: string): string {
 }
 
 /**
- * Returns true if encryption is enabled (ENCRYPTION_KEY is set).
+ * Returns true if encryption is enabled (key has been loaded).
  */
 export function isEncryptionEnabled(): boolean {
-  return !!getKey();
+  return !!cachedKey;
 }

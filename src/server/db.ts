@@ -3,7 +3,7 @@
 // When ENCRYPTION_KEY is set, sensitive fields are encrypted at rest
 // and decrypted transparently on read.
 
-import { Prisma, PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import {
   encrypt,
   encryptDeterministic,

@@ -2,7 +2,11 @@
  * One-time migration script to encrypt existing database records.
  *
  * Run ONCE before deploying the encrypted application:
- *   ENCRYPTION_KEY=<your-key> npx tsx scripts/encrypt-existing-data.ts
+ *   npx tsx scripts/encrypt-existing-data.ts
+ *
+ * The script fetches the encryption key from AWS Secrets Manager
+ * (using AWS_SECRET_NAME + AWS_REGION env vars) or falls back to
+ * ENCRYPTION_KEY env var for local use.
  *
  * This script:
  *   1. Reads all User records and encrypts email (deterministic) + fullName (random)
@@ -18,11 +22,16 @@ import {
   encryptDeterministic,
   isEncrypted,
   isEncryptionEnabled,
+  initEncryption,
 } from "../src/server/encryption";
 
 async function main() {
+  await initEncryption();
+
   if (!isEncryptionEnabled()) {
-    console.error("ENCRYPTION_KEY environment variable is not set. Aborting.");
+    console.error(
+      "No encryption key available. Set AWS_SECRET_NAME + AWS_REGION, or ENCRYPTION_KEY."
+    );
     process.exit(1);
   }
 
