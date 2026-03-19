@@ -91,10 +91,6 @@ export async function GET() {
   const resolvedRole = resolveRole(session.user.email);
   const scheduleSettings = await getScheduleSnapshot();
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/cc89fe79-f21f-41c4-9836-b19789698f76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/user/appointments/route.ts:GET',message:'Appointments GET role',data:{resolvedRole},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H2'})}).catch(()=>{});
-  // #endregion
-
   if (resolvedRole === "TEACHER") {
     let teacherId = user.teacher?.id;
     if (!teacherId) {
@@ -323,7 +319,7 @@ export async function POST(request: Request) {
   const teacherId = payload?.teacherId;
   const day = payload?.day;
   const period = payload?.period;
-  const studentNote = typeof payload?.studentNote === "string" ? payload.studentNote.trim() : "";
+  const studentNote = typeof payload?.studentNote === "string" ? payload.studentNote.trim().slice(0, 1000) : "";
 
   if (!teacherId || typeof day !== "number") {
     return new Response("Invalid payload", { status: 400 });
@@ -474,8 +470,8 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => null);
   const id = body?.id as string | undefined;
   const action = body?.action as string | undefined;
-  const teacherNote = typeof body?.note === "string" ? body.note.trim() : "";
-  const room = typeof body?.room === "string" ? body.room.trim() : "";
+  const teacherNote = typeof body?.note === "string" ? body.note.trim().slice(0, 1000) : "";
+  const room = typeof body?.room === "string" ? body.room.trim().slice(0, 100) : "";
 
   if (!id || !action) {
     return new Response("Missing id or action", { status: 400 });
@@ -507,10 +503,6 @@ export async function PATCH(request: Request) {
     }
     return teacherId;
   };
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/cc89fe79-f21f-41c4-9836-b19789698f76',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'app/api/user/appointments/route.ts:PATCH',message:'Appointment PATCH request',data:{action,resolvedRole,appointmentStatus:appointment.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'H3'})}).catch(()=>{});
-  // #endregion
 
   if (action === "confirm") {
     if (resolvedRole !== "TEACHER") {
