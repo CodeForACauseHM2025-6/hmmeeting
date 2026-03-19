@@ -131,6 +131,22 @@ export async function GET(request: Request) {
     );
   }
 
+  const TOKEN_EXPIRY_MS = 48 * 60 * 60 * 1000; // 48 hours
+  if (Date.now() - appointment.createdAt.getTime() > TOKEN_EXPIRY_MS) {
+    await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { emailToken: null },
+    });
+    return new Response(
+      htmlPage("Link Expired", `
+        <h2 class="error">Link Expired</h2>
+        <p>This link has expired. Please respond to the meeting request from the app dashboard.</p>
+        <p style="margin-top: 16px;"><a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard" class="btn btn-back" style="margin-left: 0;">Go to Dashboard</a></p>
+      `),
+      { headers: { "Content-Type": "text/html" } }
+    );
+  }
+
   if (appointment.status !== "PENDING") {
     return new Response(
       htmlPage("Already Handled", `
@@ -206,14 +222,14 @@ export async function POST(request: Request) {
     const formData = await request.formData();
     token = formData.get("token") as string | null;
     action = formData.get("action") as string | null;
-    room = ((formData.get("room") as string) || "").trim();
-    note = ((formData.get("note") as string) || "").trim();
+    room = ((formData.get("room") as string) || "").trim().slice(0, 100);
+    note = ((formData.get("note") as string) || "").trim().slice(0, 1000);
   } else {
     const body = await request.json().catch(() => null);
     token = body?.token ?? null;
     action = body?.action ?? null;
-    room = (body?.room ?? "").trim();
-    note = (body?.note ?? "").trim();
+    room = (body?.room ?? "").trim().slice(0, 100);
+    note = (body?.note ?? "").trim().slice(0, 1000);
   }
 
   if (!token || !action || !["accept", "decline"].includes(action)) {
@@ -236,6 +252,22 @@ export async function POST(request: Request) {
       htmlPage("Link Expired", `
         <h2 class="error">Link Expired or Invalid</h2>
         <p>This link is no longer valid. The meeting may have already been addressed.</p>
+        <p style="margin-top: 16px;"><a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard" class="btn btn-back" style="margin-left: 0;">Go to Dashboard</a></p>
+      `),
+      { headers: { "Content-Type": "text/html" } }
+    );
+  }
+
+  const TOKEN_EXPIRY_MS = 48 * 60 * 60 * 1000; // 48 hours
+  if (Date.now() - appointment.createdAt.getTime() > TOKEN_EXPIRY_MS) {
+    await prisma.appointment.update({
+      where: { id: appointment.id },
+      data: { emailToken: null },
+    });
+    return new Response(
+      htmlPage("Link Expired", `
+        <h2 class="error">Link Expired</h2>
+        <p>This link has expired. Please respond to the meeting request from the app dashboard.</p>
         <p style="margin-top: 16px;"><a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard" class="btn btn-back" style="margin-left: 0;">Go to Dashboard</a></p>
       `),
       { headers: { "Content-Type": "text/html" } }
