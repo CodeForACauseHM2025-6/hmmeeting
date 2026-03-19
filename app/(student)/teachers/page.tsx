@@ -31,16 +31,11 @@ export default async function TeachersPage() {
   const isAdmin = resolvedRole === "ADMIN";
 
   // Admins see all users; students see only teachers
-  const users = isAdmin
-    ? await prisma.user.findMany({
-        include: { teacher: true },
-        orderBy: { fullName: "asc" },
-      })
-    : await prisma.user.findMany({
-        where: { role: "TEACHER" },
-        include: { teacher: true },
-        orderBy: { fullName: "asc" },
-      });
+  const users = (
+    isAdmin
+      ? await prisma.user.findMany({ include: { teacher: true } })
+      : await prisma.user.findMany({ where: { role: "TEACHER" }, include: { teacher: true } })
+  ).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
   // For admins: auto-create Teacher profiles for users who don't have one
   // so the existing booking flow (which uses teacherId) works for everyone

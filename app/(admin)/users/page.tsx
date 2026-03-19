@@ -166,9 +166,9 @@ export default async function AdminUsersPage() {
     await ensureDevUsers();
   }
 
-  const users = await prisma.user.findMany({
-    orderBy: { fullName: "asc" },
-  });
+  const users = (await prisma.user.findMany()).sort((a, b) =>
+    a.fullName.localeCompare(b.fullName)
+  );
 
   const scheduleSettings = await prisma.appSettings.upsert({
     where: { id: SETTINGS_ID },
