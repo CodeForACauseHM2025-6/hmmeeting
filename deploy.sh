@@ -33,6 +33,30 @@ warn() { echo -e "${YELLOW}[!]${NC} $1"; }
 err()  { echo -e "${RED}[x]${NC} $1"; exit 1; }
 
 # ----------------------------------------------------------
+# Helper: Load all env vars from .env.production + DATABASE_URL
+# ----------------------------------------------------------
+load_env() {
+    cd "$APP_DIR"
+    if [ ! -f .env.production ]; then
+        err ".env.production not found."
+    fi
+    set -a
+    source .env.production
+    set +a
+    export DATABASE_URL="file:$DATA_DIR/prod.db"
+}
+
+# ----------------------------------------------------------
+# Helper: Start PM2 fresh (delete old process if exists, then start)
+# PM2 only captures env vars at start time, not on restart.
+# ----------------------------------------------------------
+pm2_fresh_start() {
+    pm2 delete hmmeeting 2>/dev/null || true
+    pm2 start npm --name "hmmeeting" -- start
+    pm2 save
+}
+
+# ----------------------------------------------------------
 # setup: Install Node.js, PM2, configure firewall
 # ----------------------------------------------------------
 cmd_setup() {
@@ -81,9 +105,10 @@ cmd_init() {
         echo "GOOGLE_CLIENT_ID=your-google-client-id"
         echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id"
         echo "GOOGLE_CLIENT_SECRET=your-google-client-secret"
-        echo "NEXTAUTH_SECRET=$(openssl rand -base64 32)"
-        echo "APP_URL=http://YOUR_LINODE_IP:3000"
-        echo "NEXTAUTH_URL=http://YOUR_LINODE_IP:3000"
+        echo "AUTH_SECRET=$(openssl rand -base64 32)"
+        echo "AUTH_URL=http://YOUR_SSLIP_DOMAIN"
+        echo "AUTH_TRUST_HOST=true"
+        echo "APP_URL=http://YOUR_SSLIP_DOMAIN"
         echo "RESEND_API_KEY=re_your_resend_api_key"
         echo "----------------------------------------------"
         echo ""
@@ -91,20 +116,21 @@ cmd_init() {
         exit 0
     fi
 
-    # Validate required env vars
-    set -a
-    source .env.production
-    set +a
+    # Load env vars
+    load_env
 
-    if [ -z "$NEXTAUTH_SECRET" ] || [ "$NEXTAUTH_SECRET" = "generate-with-openssl-rand-base64-32" ]; then
-        err "NEXTAUTH_SECRET not set. Generate with: openssl rand -base64 32"
+    # Validate required env vars
+    if [ -z "$AUTH_SECRET" ] && [ -z "$NEXTAUTH_SECRET" ]; then
+        err "AUTH_SECRET not set. Generate with: openssl rand -base64 32"
     fi
     if [ -z "$GOOGLE_CLIENT_ID" ] || [ "$GOOGLE_CLIENT_ID" = "your-google-client-id" ]; then
         err "GOOGLE_CLIENT_ID not set in .env.production."
     fi
-    if [ -z "$APP_URL" ] || [ "$APP_URL" = "http://YOUR_LINODE_IP:3000" ]; then
-        err "APP_URL not set. Use http://YOUR_IP:3000"
+    if [ -z "$APP_URL" ] || echo "$APP_URL" | grep -q "YOUR_"; then
+        err "APP_URL not set properly in .env.production."
     fi
+
+    log "App URL: $APP_URL"
 
     # Create data directory for production SQLite
     mkdir -p "$DATA_DIR"
@@ -116,18 +142,13 @@ cmd_init() {
     npx prisma generate
 
     log "Running database migrations..."
-    DATABASE_URL="file:$DATA_DIR/prod.db" npx prisma migrate deploy
+    npx prisma migrate deploy
 
     log "Building Next.js..."
-    # Load env vars so NEXT_PUBLIC_ vars are baked into the build
-    set -a
-    source .env.production
-    set +a
     npm run build
 
     log "Starting app with PM2..."
-    DATABASE_URL="file:$DATA_DIR/prod.db" pm2 start npm --name "hmmeeting" -- start
-    pm2 save
+    pm2_fresh_start
 
     log "Deployment complete!"
     log "Your app is live at: $APP_URL"
@@ -144,6 +165,7 @@ cmd_init() {
 # ----------------------------------------------------------
 cmd_deploy() {
     cd "$APP_DIR"
+    load_env
 
     log "Pulling latest code..."
     git pull
@@ -151,21 +173,20 @@ cmd_deploy() {
     log "Installing dependencies..."
     npm ci
 
+    log "Checking for known vulnerabilities..."
+    npm audit --omit=dev || warn "Vulnerabilities found — review above before going live."
+
     log "Generating Prisma client..."
     npx prisma generate
 
     log "Running database migrations..."
-    DATABASE_URL="file:$DATA_DIR/prod.db" npx prisma migrate deploy
+    npx prisma migrate deploy
 
     log "Building Next.js..."
-    set -a
-    source .env.production
-    set +a
     npm run build
 
     log "Restarting app..."
-    pm2 restart hmmeeting
-    pm2 save
+    pm2_fresh_start
 
     log "Deploy complete!"
     pm2 status
@@ -218,7 +239,8 @@ cmd_restore() {
 
     pm2 stop hmmeeting
     cp "$BACKUP_FILE" "$DATA_DIR/prod.db"
-    pm2 start hmmeeting
+    load_env
+    pm2_fresh_start
     log "Database restored from: $2"
 }
 
@@ -235,11 +257,8 @@ cmd_stop() {
 }
 
 cmd_start() {
-    cd "$APP_DIR"
-    set -a
-    source .env.production
-    set +a
-    DATABASE_URL="file:$DATA_DIR/prod.db" pm2 start hmmeeting
+    load_env
+    pm2_fresh_start
     log "App started."
 }
 
