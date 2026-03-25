@@ -162,11 +162,10 @@ export default function TeacherAvailabilityPage() {
   const handleSlotClick = (day: number, period: PeriodValue) => {
     const key = `${day}-${period}`;
     const teacherFree = teacherFreeSet.has(key);
-    const studentFree = studentFreeSet.has(key);
     const isOH = officeHoursSet.has(key);
 
-    // Only allow booking if it's a match (both free) or office hours
-    if ((teacherFree && studentFree) || isOH) {
+    // Allow booking any slot where the teacher is available
+    if (teacherFree || isOH) {
       setSelectedSlot({ day, period });
       setStudentNote("");
       setMessage("");
@@ -251,7 +250,7 @@ export default function TeacherAvailabilityPage() {
             )}
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#e65100", border: "2px solid #e65100" }} />
-              <span style={{ fontSize: "13px", fontWeight: 600 }}>Teacher free only</span>
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>Teacher free (bookable)</span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#1565c0", border: "2px solid #1565c0" }} />
@@ -294,7 +293,7 @@ export default function TeacherAvailabilityPage() {
                   const teacherFree = teacherFreeSet.has(key);
                   const studentFree = studentFreeSet.has(key);
                   const isOH = officeHoursSet.has(key);
-                  const bookable = (teacherFree && studentFree) || isOH;
+                  const bookable = teacherFree || isOH;
 
                   let backgroundColor = "#f5f2ed";
                   let cellBorder = "2px solid var(--primary)";
