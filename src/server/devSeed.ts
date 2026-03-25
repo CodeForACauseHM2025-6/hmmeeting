@@ -65,6 +65,10 @@ export async function ensureDevUsers() {
 
   try {
     for (const devUser of DEV_USERS) {
+      const existing = await prisma.user.findUnique({
+        where: { email: devUser.email },
+      });
+
       const user = await prisma.user.upsert({
         where: { email: devUser.email },
         create: {
@@ -73,15 +77,24 @@ export async function ensureDevUsers() {
           role: devUser.role,
         },
         update: {
-          fullName: devUser.fullName,
           role: devUser.role,
         },
       });
 
-      if (devUser.role === "TEACHER") {
-        await seedTeacher(devUser, user.id);
-      } else {
-        await seedStudent(devUser, user.id);
+      // Only seed schedules for newly created users — don't overwrite manual changes
+      if (!existing) {
+        if (devUser.role === "TEACHER") {
+          await seedTeacher(devUser, user.id);
+        } else {
+          await seedStudent(devUser, user.id);
+        }
+      } else if (devUser.role === "TEACHER") {
+        // Ensure teacher record exists even for existing users
+        await prisma.teacher.upsert({
+          where: { userId: user.id },
+          create: { userId: user.id },
+          update: {},
+        });
       }
     }
   } catch (error) {
