@@ -126,9 +126,10 @@ export default function UserSearchTable({
           style={{
             width: "100%",
             maxWidth: "400px",
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
+            padding: '12px 14px',
+            borderRadius: '8px',
+            border: '2px solid var(--border)',
+            fontSize: '15px',
           }}
         />
       </div>
@@ -136,16 +137,16 @@ export default function UserSearchTable({
       <table style={{ width: "100%", borderCollapse: "collapse" }}>
         <thead>
           <tr>
-            <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>
+            <th style={{ textAlign: 'left', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em' }}>
               Name
             </th>
-            <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>
+            <th style={{ textAlign: 'left', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em' }}>
               Email
             </th>
-            <th style={{ textAlign: "left", padding: "8px", borderBottom: "1px solid #ddd" }}>
+            <th style={{ textAlign: 'left', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em' }}>
               Role
             </th>
-            <th style={{ textAlign: "center", padding: "8px", borderBottom: "1px solid #ddd", width: "60px" }}>
+            <th style={{ textAlign: 'center', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em', width: '60px' }}>
               Actions
             </th>
           </tr>
@@ -163,21 +164,21 @@ export default function UserSearchTable({
           ) : (
             filteredUsers.map((user) => (
               <tr key={user.id}>
-                <td style={{ padding: "8px", borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: '14px', borderBottom: '2px solid #f0ece6' }}>
                   {user.fullName}
                 </td>
-                <td style={{ padding: "8px", borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: '14px', borderBottom: '2px solid #f0ece6' }}>
                   {user.email}
                 </td>
-                <td style={{ padding: "8px", borderBottom: "1px solid #f0f0f0" }}>
+                <td style={{ padding: '14px', borderBottom: '2px solid #f0ece6' }}>
                   {user.resolvedRole}
                 </td>
                 <td
                   style={{
-                    padding: "8px",
-                    borderBottom: "1px solid #f0f0f0",
-                    textAlign: "center",
-                    position: "relative",
+                    padding: '14px',
+                    borderBottom: '2px solid #f0ece6',
+                    textAlign: 'center',
+                    position: 'relative',
                   }}
                 >
                   <button
@@ -187,12 +188,12 @@ export default function UserSearchTable({
                       setRoleSubMenuId(null);
                     }}
                     style={{
-                      background: "none",
-                      border: "1px solid #ccc",
-                      borderRadius: "6px",
-                      padding: "6px 10px",
-                      cursor: "pointer",
-                      fontSize: "16px",
+                      background: 'none',
+                      border: '2px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
                     }}
                     title="Actions"
                   >
@@ -203,16 +204,16 @@ export default function UserSearchTable({
                     <div
                       ref={menuRef}
                       style={{
-                        position: "absolute",
+                        position: 'absolute',
                         right: 0,
-                        top: "100%",
-                        background: "#fff",
-                        border: "1px solid #ddd",
-                        borderRadius: "8px",
-                        boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+                        top: '100%',
+                        background: '#fff',
+                        border: '2px solid var(--primary)',
+                        borderRadius: '10px',
+                        boxShadow: '0 8px 24px rgba(91,13,31,0.12)',
                         zIndex: 100,
-                        minWidth: "180px",
-                        overflow: "hidden",
+                        minWidth: '180px',
+                        overflow: 'hidden',
                       }}
                     >
                       {/* Change Role */}
@@ -222,14 +223,15 @@ export default function UserSearchTable({
                           setRoleSubMenuId(roleSubMenuId === user.id ? null : user.id)
                         }
                         style={{
-                          display: "block",
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "10px 14px",
-                          border: "none",
-                          background: roleSubMenuId === user.id ? "#f5f5f5" : "#fff",
-                          cursor: "pointer",
-                          fontSize: "14px",
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '12px 16px',
+                          border: 'none',
+                          background: roleSubMenuId === user.id ? '#f5f5f5' : '#fff',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: 600,
                         }}
                       >
                         Change Role ▸
@@ -266,15 +268,16 @@ export default function UserSearchTable({
                         type="button"
                         onClick={() => handleViewSchedule(user)}
                         style={{
-                          display: "block",
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "10px 14px",
-                          border: "none",
-                          borderTop: "1px solid #eee",
-                          background: "#fff",
-                          cursor: "pointer",
-                          fontSize: "14px",
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '12px 16px',
+                          border: 'none',
+                          borderTop: '1px solid #eee',
+                          background: '#fff',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: 600,
                         }}
                       >
                         View Schedule
@@ -288,16 +291,17 @@ export default function UserSearchTable({
                           setConfirmRemove(user);
                         }}
                         style={{
-                          display: "block",
-                          width: "100%",
-                          textAlign: "left",
-                          padding: "10px 14px",
-                          border: "none",
-                          borderTop: "1px solid #eee",
-                          background: "#fff",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          color: "#d32f2f",
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          padding: '12px 16px',
+                          border: 'none',
+                          borderTop: '1px solid #eee',
+                          background: '#fff',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: 600,
+                          color: '#d32f2f',
                         }}
                       >
                         Remove User
@@ -327,16 +331,16 @@ export default function UserSearchTable({
         >
           <div
             style={{
-              background: "#fff",
-              borderRadius: "12px",
-              padding: "28px",
-              maxWidth: "400px",
-              width: "90%",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '32px',
+              maxWidth: '400px',
+              width: '90%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: "12px", color: "#d32f2f" }}>Remove User</h3>
+            <h3 style={{ marginBottom: '12px', color: '#d32f2f', fontFamily: 'var(--font-lora, Georgia, serif)' }}>Remove User</h3>
             <p style={{ marginBottom: "20px" }}>
               Are you sure you want to remove <strong>{confirmRemove.fullName}</strong> ({confirmRemove.email})?
               This will delete their account and all associated data.
@@ -346,11 +350,13 @@ export default function UserSearchTable({
                 type="button"
                 onClick={() => setConfirmRemove(null)}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  background: "#fff",
-                  cursor: "pointer",
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #ccc',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
                 }}
               >
                 Cancel
@@ -359,13 +365,14 @@ export default function UserSearchTable({
                 type="button"
                 onClick={handleRemoveConfirm}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: "#d32f2f",
-                  color: "#fff",
-                  fontWeight: 600,
-                  cursor: "pointer",
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#d32f2f',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
                 }}
               >
                 Remove
@@ -391,18 +398,18 @@ export default function UserSearchTable({
         >
           <div
             style={{
-              background: "#fff",
-              borderRadius: "12px",
-              padding: "28px",
-              maxWidth: "700px",
-              width: "95%",
-              maxHeight: "85vh",
-              overflowY: "auto",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '32px',
+              maxWidth: '700px',
+              width: '95%',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: "4px", color: "var(--primary)" }}>
+            <h3 style={{ marginBottom: '4px', color: 'var(--primary)', fontFamily: 'var(--font-lora, Georgia, serif)' }}>
               {scheduleUser.fullName}&apos;s Schedule
             </h3>
             <p style={{ color: "#666", fontSize: "13px", marginBottom: "16px" }}>
@@ -418,11 +425,11 @@ export default function UserSearchTable({
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <span
                       style={{
-                        width: "16px",
-                        height: "16px",
-                        borderRadius: "3px",
-                        border: "1px solid #ccc",
-                        background: "#fff",
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '3px',
+                        border: '2px solid #ccc',
+                        background: '#fff',
                       }}
                     />
                     <span style={{ fontSize: "12px", color: "#555" }}>Busy</span>
@@ -430,10 +437,11 @@ export default function UserSearchTable({
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                     <span
                       style={{
-                        width: "16px",
-                        height: "16px",
-                        borderRadius: "3px",
-                        background: "#5b0d1f",
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '3px',
+                        border: '2px solid #5b0d1f',
+                        background: '#5b0d1f',
                       }}
                     />
                     <span style={{ fontSize: "12px", color: "#555" }}>Free</span>
@@ -442,10 +450,11 @@ export default function UserSearchTable({
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                       <span
                         style={{
-                          width: "16px",
-                          height: "16px",
-                          borderRadius: "3px",
-                          background: "#7b1fa2",
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '3px',
+                          border: '2px solid #6a1b9a',
+                          background: '#6a1b9a',
                         }}
                       />
                       <span style={{ fontSize: "12px", color: "#555" }}>Office Hours</span>
@@ -491,7 +500,7 @@ export default function UserSearchTable({
                             let label = "";
                             if (slot) {
                               if (slot.type === "OFFICE_HOURS") {
-                                bg = "#7b1fa2";
+                                bg = "#6a1b9a";
                                 color = "#fff";
                                 label = "OH";
                               } else {
@@ -549,12 +558,13 @@ export default function UserSearchTable({
                 type="button"
                 onClick={() => setScheduleUser(null)}
                 style={{
-                  padding: "8px 20px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  background: "#fff",
-                  cursor: "pointer",
-                  fontWeight: 600,
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #ccc',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
                 }}
               >
                 Close
@@ -572,7 +582,7 @@ export default function UserSearchTable({
           paddingTop: "24px",
         }}
       >
-        <h3 style={{ fontSize: "16px", color: "#d32f2f", marginBottom: "8px" }}>
+        <h3 style={{ fontSize: '16px', color: '#d32f2f', marginBottom: '8px', fontWeight: 700, textTransform: 'uppercase' }}>
           Danger Zone
         </h3>
         <p style={{ color: "#666", fontSize: "14px", marginBottom: "12px" }}>
@@ -582,13 +592,14 @@ export default function UserSearchTable({
           type="button"
           onClick={() => setClearStep(1)}
           style={{
-            padding: "10px 20px",
-            borderRadius: "6px",
-            border: "2px solid #d32f2f",
-            background: "#fff",
-            color: "#d32f2f",
-            fontWeight: 600,
-            cursor: "pointer",
+            padding: '10px 20px',
+            borderRadius: '6px',
+            border: '2px solid var(--danger)',
+            background: '#fff',
+            color: 'var(--danger)',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            cursor: 'pointer',
           }}
         >
           Clear All Schedules
@@ -611,16 +622,16 @@ export default function UserSearchTable({
         >
           <div
             style={{
-              background: "#fff",
-              borderRadius: "12px",
-              padding: "28px",
-              maxWidth: "420px",
-              width: "90%",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '32px',
+              maxWidth: '420px',
+              width: '90%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: "12px", color: "#d32f2f" }}>Are you sure?</h3>
+            <h3 style={{ marginBottom: '12px', color: '#d32f2f', fontFamily: 'var(--font-lora, Georgia, serif)' }}>Are you sure?</h3>
             <p style={{ marginBottom: "20px" }}>
               This will set all periods to busy and cancel all active meetings. This action cannot be undone.
             </p>
@@ -629,11 +640,13 @@ export default function UserSearchTable({
                 type="button"
                 onClick={() => { setClearStep(0); setClearInput(""); }}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  background: "#fff",
-                  cursor: "pointer",
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #ccc',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
                 }}
               >
                 Cancel
@@ -642,13 +655,14 @@ export default function UserSearchTable({
                 type="button"
                 onClick={() => setClearStep(2)}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: "#d32f2f",
-                  color: "#fff",
-                  fontWeight: 600,
-                  cursor: "pointer",
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#d32f2f',
+                  color: '#fff',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
                 }}
               >
                 Continue
@@ -674,16 +688,16 @@ export default function UserSearchTable({
         >
           <div
             style={{
-              background: "#fff",
-              borderRadius: "12px",
-              padding: "28px",
-              maxWidth: "420px",
-              width: "90%",
-              boxShadow: "0 8px 24px rgba(0,0,0,0.15)",
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '32px',
+              maxWidth: '420px',
+              width: '90%',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: "12px", color: "#d32f2f" }}>Type &quot;clear&quot; to confirm</h3>
+            <h3 style={{ marginBottom: '12px', color: '#d32f2f', fontFamily: 'var(--font-lora, Georgia, serif)' }}>Type &quot;clear&quot; to confirm</h3>
             <p style={{ marginBottom: "12px", fontSize: "14px", color: "#666" }}>
               This will permanently clear all schedules and cancel all meetings.
             </p>
@@ -693,12 +707,12 @@ export default function UserSearchTable({
               onChange={(e) => setClearInput(e.target.value)}
               placeholder='Type "clear"'
               style={{
-                width: "100%",
-                padding: "10px 12px",
-                borderRadius: "6px",
-                border: "1px solid #ccc",
-                marginBottom: "16px",
-                fontSize: "14px",
+                width: '100%',
+                padding: '12px 14px',
+                borderRadius: '8px',
+                border: '2px solid var(--border)',
+                marginBottom: '16px',
+                fontSize: '15px',
               }}
               autoFocus
             />
@@ -707,11 +721,13 @@ export default function UserSearchTable({
                 type="button"
                 onClick={() => { setClearStep(0); setClearInput(""); }}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "1px solid #ccc",
-                  background: "#fff",
-                  cursor: "pointer",
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: '1px solid #ccc',
+                  background: '#fff',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
                 }}
               >
                 Cancel
@@ -721,15 +737,16 @@ export default function UserSearchTable({
                 disabled={clearInput.trim().toLowerCase() !== "clear" || clearing}
                 onClick={handleClearAll}
                 style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
+                  padding: '12px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
                   background:
                     clearInput.trim().toLowerCase() === "clear" ? "#d32f2f" : "#ccc",
-                  color: "#fff",
-                  fontWeight: 600,
+                  color: '#fff',
+                  fontWeight: 700,
                   cursor:
                     clearInput.trim().toLowerCase() === "clear" ? "pointer" : "not-allowed",
+                  textTransform: 'uppercase',
                 }}
               >
                 {clearing ? "Clearing..." : "Clear All Schedules"}

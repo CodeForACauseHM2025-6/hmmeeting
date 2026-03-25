@@ -471,18 +471,18 @@ function StudentDashboard({ firstName }: { firstName: string }) {
             <div
                 style={{
                     marginTop: "24px",
-                    border: "1px solid var(--primary)",
-                    borderRadius: "12px",
-                    padding: "20px",
+                    borderLeft: "4px solid var(--primary)",
+                    borderRadius: "10px",
+                    padding: "28px",
                     background: "#fff",
-                    boxShadow: "0 10px 20px rgba(0,0,0,0.05)",
+                    boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
                 }}
             >
-                <h2 style={{ fontSize: "20px", marginBottom: "8px", color: "var(--primary)" }}>
+                <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "22px", fontWeight: 700, marginBottom: "16px", color: "var(--primary)" }}>
                     Your free periods
                 </h2>
                 {scheduleByDay.length === 0 ? (
-                    <p style={{ color: "#666" }}>
+                    <p style={{ color: "var(--muted)" }}>
                         No free periods saved yet. Update your schedule in account setup.
                     </p>
                 ) : (
@@ -491,13 +491,13 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                             <li
                                 key={day.day}
                                 style={{
-                                    border: "1px solid #e0e0e0",
+                                    border: "2px solid #f0ece6",
                                     borderRadius: "10px",
-                                    padding: "12px 16px",
+                                    padding: "14px 20px",
                                     marginBottom: "10px",
                                 }}
                             >
-                                <strong>Day {day.day}:</strong> {day.periods.join(", ")}
+                                <strong style={{ fontSize: '16px', fontWeight: 700 }}>Day {day.day}:</strong> {day.periods.join(", ")}
                             </li>
                         ))}
                     </ul>
@@ -628,10 +628,11 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
 
     return (
         <div style={{ padding: "40px" }}>
-            <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
+            <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "34px", fontWeight: 700, marginBottom: "12px", color: "var(--primary)" }}>
                 {getGreeting()}, {firstName}
             </h1>
-            <p style={{ marginBottom: "20px", color: "#555" }}>
+            <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
+            <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>
                 This is your dashboard.
             </p>
 
@@ -639,12 +640,16 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                 href="/account/setup"
                 style={{
                     display: "inline-block",
-                    padding: "10px 16px",
+                    padding: "14px 24px",
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    borderRadius: "8px",
+                    borderRadius: "10px",
                     textDecoration: "none",
                     marginBottom: "24px",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    fontWeight: 700,
+                    fontSize: "15px",
                 }}
             >
                 Update availability
@@ -652,14 +657,14 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
 
             <div
                 style={{
-                    border: "1px solid var(--primary)",
-                    borderRadius: "12px",
-                    padding: "20px",
+                    borderLeft: "4px solid var(--primary)",
+                    borderRadius: "10px",
+                    padding: "28px",
                     background: "#fff",
-                    boxShadow: "0 10px 20px rgba(0,0,0,0.05)",
+                    boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
                 }}
             >
-                <h2 style={{ fontSize: "20px", marginBottom: "8px", color: "var(--primary)" }}>
+                <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "22px", fontWeight: 700, marginBottom: "16px", color: "var(--primary)" }}>
                     Upcoming meetings
                 </h2>
                 {actionMessage && (
@@ -673,31 +678,33 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                             <li
                                 key={appointment.id}
                                 style={{
-                                    border: "1px solid #e0e0e0",
+                                    border: "2px solid #f0ece6",
                                     borderRadius: "10px",
-                                    padding: "12px 16px",
+                                    padding: "16px 20px",
+                                    borderLeft: "3px solid var(--accent)",
                                     marginBottom: "10px",
                                 }}
                             >
-                                <div style={{ fontWeight: 600 }}>
-                                    {appointment.status === "CANCELLED"
-                                        ? "CANCELLED: "
-                                        : appointment.status === "COMPLETED"
-                                          ? "COMPLETED: "
-                                          : ""}
+                                <div style={{ fontSize: '16px', fontWeight: 700 }}>
+                                    {appointment.status === "CANCELLED" ? (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#fef2f2', color: 'var(--danger)', marginRight: '8px' }}>Cancelled</span>
+                                    ) : appointment.status === "COMPLETED" ? (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f0fdf4', color: 'var(--success)', marginRight: '8px' }}>Completed</span>
+                                    ) : appointment.status === "CONFIRMED" ? (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--accent-soft)', color: 'var(--primary)', marginRight: '8px' }}>Confirmed</span>
+                                    ) : (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f5f5f5', color: 'var(--muted)', marginRight: '8px' }}>Pending</span>
+                                    )}
                                     Day {appointment.day} • Period {appointment.period}
                                 </div>
                                 {appointment.meetingDate && (
-                                    <div style={{ color: "#777", fontSize: "13px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
                                         {appointment.meetingDate}
                                         {appointment.meetingTime ? ` • ${appointment.meetingTime}` : ""}
                                     </div>
                                 )}
-                                <div style={{ color: "#555" }}>
+                                <div style={{ color: "#555", marginTop: "4px" }}>
                                     Student: {appointment.studentName} ({appointment.studentEmail})
-                                </div>
-                                <div style={{ color: "#777", fontSize: "13px" }}>
-                                    Status: {appointment.status}
                                 </div>
                                 {appointment.room && (
                                     <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
@@ -722,13 +729,16 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                         }
                                         style={{
                                             marginTop: "8px",
-                                            padding: "6px 10px",
+                                            padding: "10px 18px",
                                             borderRadius: "6px",
-                                            border: "1px solid var(--primary)",
+                                            border: "2px solid var(--primary)",
                                             background: "#fff",
                                             color: "var(--primary)",
                                             cursor: "pointer",
-                                            fontWeight: 600,
+                                            fontWeight: 700,
+                                            fontSize: "13px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.04em",
                                         }}
                                     >
                                         Acknowledge
@@ -742,13 +752,16 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                             }
                                             style={{
                                                 marginTop: "8px",
-                                                padding: "6px 10px",
+                                                padding: "10px 18px",
                                                 borderRadius: "6px",
-                                                border: "1px solid var(--primary)",
+                                                border: "2px solid var(--primary)",
                                                 background: "#fff",
                                                 color: "var(--primary)",
                                                 cursor: "pointer",
-                                                fontWeight: 600,
+                                                fontWeight: 700,
+                                                fontSize: "13px",
+                                                textTransform: "uppercase",
+                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Acknowledge
@@ -760,13 +773,16 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                         onClick={() => completeAppointment(appointment.id)}
                                         style={{
                                             marginTop: "8px",
-                                            padding: "6px 10px",
+                                            padding: "10px 18px",
                                             borderRadius: "6px",
-                                            border: "1px solid var(--primary)",
+                                            border: "2px solid var(--primary)",
                                             background: "var(--primary)",
                                             color: "#fff",
                                             cursor: "pointer",
-                                            fontWeight: 600,
+                                            fontWeight: 700,
+                                            fontSize: "13px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.04em",
                                         }}
                                     >
                                         Mark as completed
@@ -780,9 +796,9 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                             value={responses[appointment.id]?.room ?? ""}
                                             onChange={(event) => updateResponse(appointment.id, "room", event.target.value)}
                                             style={{
-                                                padding: "8px 10px",
-                                                borderRadius: "6px",
-                                                border: "1px solid #ccc",
+                                                padding: "12px 14px",
+                                                borderRadius: "8px",
+                                                border: "2px solid var(--border)",
                                             }}
                                         />
                                         <textarea
@@ -791,9 +807,9 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                             onChange={(event) => updateResponse(appointment.id, "note", event.target.value)}
                                             rows={3}
                                             style={{
-                                                padding: "8px 10px",
-                                                borderRadius: "6px",
-                                                border: "1px solid #ccc",
+                                                padding: "12px 14px",
+                                                borderRadius: "8px",
+                                                border: "2px solid var(--border)",
                                                 resize: "vertical",
                                             }}
                                         />
@@ -802,13 +818,16 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                                 type="button"
                                                 onClick={() => handleDecision(appointment.id, "confirm")}
                                                 style={{
-                                                    padding: "6px 12px",
+                                                    padding: "10px 18px",
                                                     borderRadius: "6px",
-                                                    border: "none",
+                                                    border: "2px solid var(--primary)",
                                                     background: "var(--primary)",
                                                     color: "#fff",
                                                     cursor: "pointer",
-                                                    fontWeight: 600,
+                                                    fontWeight: 700,
+                                                    fontSize: "13px",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: "0.04em",
                                                 }}
                                             >
                                                 Accept
@@ -817,13 +836,16 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                                 type="button"
                                                 onClick={() => handleDecision(appointment.id, "decline")}
                                                 style={{
-                                                    padding: "6px 12px",
+                                                    padding: "10px 18px",
                                                     borderRadius: "6px",
-                                                    border: "1px solid #d32f2f",
+                                                    border: "2px solid var(--danger)",
                                                     background: "#fff",
-                                                    color: "#d32f2f",
+                                                    color: "var(--danger)",
                                                     cursor: "pointer",
-                                                    fontWeight: 600,
+                                                    fontWeight: 700,
+                                                    fontSize: "13px",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: "0.04em",
                                                 }}
                                             >
                                                 Decline
@@ -843,19 +865,24 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
 function AdminDashboard({ firstName }: { firstName: string }) {
     return (
         <div style={{ padding: "40px" }}>
-            <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
+            <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "34px", fontWeight: 700, marginBottom: "12px", color: "var(--primary)" }}>
                 {getGreeting()}, {firstName}
             </h1>
-            <p style={{ marginBottom: "20px" }}>This is your dashboard.</p>
+            <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
+            <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>This is your dashboard.</p>
             <Link
                 href="/users"
                 style={{
                     display: "inline-block",
-                    padding: "10px 16px",
+                    padding: "14px 24px",
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    borderRadius: "6px",
+                    borderRadius: "10px",
                     textDecoration: "none",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                    fontWeight: 700,
+                    fontSize: "15px",
                 }}
             >
                 Manage users
