@@ -108,17 +108,23 @@ export default function TeacherAvailabilityPage() {
 
     async function loadAvailability() {
       setLoading(true);
-      const response = await fetch(`/api/user/availability?teacherId=${teacherId}`);
-      if (response.status === 401) {
-        router.replace("/login");
-        return;
-      }
-      if (!response.ok) {
-        setMessage("Failed to load availability.");
+      try {
+        const response = await fetch(`/api/user/availability?teacherId=${teacherId}`);
+        if (response.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => "");
+          setMessage(errorText || `Failed to load availability (${response.status}).`);
+          setLoading(false);
+          return;
+        }
+        setAvailability(await response.json());
+      } catch {
+        setMessage("Failed to load availability. Please try again.");
         setLoading(false);
-        return;
       }
-      setAvailability(await response.json());
     }
 
     async function loadStudentSchedule() {
