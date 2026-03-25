@@ -155,13 +155,13 @@ export default function TeacherAvailabilityPage() {
 
   return (
     <div style={{ padding: "40px 48px", maxWidth: "900px", margin: "0 auto" }}>
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ overflowX: "auto", border: "2px solid var(--primary)", borderRadius: "12px", overflow: "hidden", boxShadow: "0 4px 20px rgba(91,13,31,0.08)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "14px 12px", background: "var(--primary)", color: "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em" }}>Period</th>
+              <th style={{ textAlign: "left", padding: "14px 12px", background: "var(--primary)", color: "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>Period</th>
               {orderedDays.map((day) => (
-                <th key={day} style={{ padding: "14px 12px", background: day === todayCycleDay ? "var(--primary-soft)" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em" }}>
+                <th key={day} style={{ padding: "14px 12px", background: day === todayCycleDay ? "var(--primary-soft)" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>
                   <div>
                     Day {day}
                     {dayDates[day] && (
@@ -178,7 +178,7 @@ export default function TeacherAvailabilityPage() {
           <tbody>
             {PERIODS.map((period) => (
               <tr key={period}>
-                <td style={{ fontWeight: 700, fontSize: "15px", padding: "12px 14px", color: "var(--primary)" }}>{period}</td>
+                <td style={{ fontWeight: 700, fontSize: "15px", padding: "12px 14px", color: "var(--primary)", borderBottom: "1px solid #ede4e6", background: "#fff" }}>{period}</td>
                 {orderedDays.map((day) => {
                   const key = `${day}-${period}`;
                   const teacherFree = teacherFreeSet.has(key);
@@ -194,7 +194,7 @@ export default function TeacherAvailabilityPage() {
                   else cellBorder = "2px solid var(--border)";
 
                   return (
-                    <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "transparent" }}>
+                    <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "#fff", borderBottom: "1px solid #ede4e6" }}>
                       <button
                         style={{
                           width: "100%",
