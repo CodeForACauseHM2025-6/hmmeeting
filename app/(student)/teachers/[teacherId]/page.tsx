@@ -153,8 +153,112 @@ export default function TeacherAvailabilityPage() {
 
   const hasOfficeHours = officeHoursSet.size > 0;
 
+  const handleSlotClick = (day: number, period: PeriodValue) => {
+    const key = `${day}-${period}`;
+    const teacherFree = teacherFreeSet.has(key);
+    const studentFree = studentFreeSet.has(key);
+    const isOH = officeHoursSet.has(key);
+
+    // Only allow booking if it's a match (both free) or office hours
+    if ((teacherFree && studentFree) || isOH) {
+      setSelectedSlot({ day, period });
+      setStudentNote("");
+      setMessage("");
+      setModalOpen(true);
+    }
+  };
+
+  const handleBook = async () => {
+    if (!selectedSlot || !teacherId) return;
+
+    const isOH = officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`);
+    if (!isOH && !studentNote.trim()) {
+      setMessage("Please provide a reason for the meeting.");
+      return;
+    }
+
+    setBooking(true);
+    setMessage("");
+
+    try {
+      const response = await fetch("/api/user/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacherId,
+          day: selectedSlot.day,
+          period: selectedSlot.period,
+          studentNote: studentNote.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        setMessage(errorText || "Failed to book meeting.");
+        setBooking(false);
+        return;
+      }
+
+      setModalOpen(false);
+      setSelectedSlot(null);
+      setStudentNote("");
+      router.push("/dashboard?booking=success");
+    } catch {
+      setMessage("Something went wrong. Please try again.");
+      setBooking(false);
+    }
+  };
+
   return (
     <div style={{ padding: "40px 48px", maxWidth: "900px", margin: "0 auto" }}>
+      <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "34px", fontWeight: 700, color: "var(--primary)", marginBottom: "8px" }}>
+        {teacherName}&apos;s Availability
+      </h1>
+      <div style={{ background: "var(--accent)", height: "3px", width: "60px", borderRadius: "2px", marginBottom: "24px" }} />
+
+      {message && !modalOpen && (
+        <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "8px", border: "2px solid var(--danger)", background: "#fef2f2", color: "var(--danger)", fontWeight: 600 }}>
+          {message}
+        </div>
+      )}
+
+      {/* Legend */}
+      <div style={{ marginBottom: "20px" }}>
+        <button
+          type="button"
+          onClick={() => setShowLegend(!showLegend)}
+          style={{ background: "none", border: "none", color: "var(--primary)", fontWeight: 700, fontSize: "14px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em" }}
+        >
+          {showLegend ? "Hide legend" : "Show legend"}
+        </button>
+        {showLegend && (
+          <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", marginTop: "12px", padding: "16px", background: "#fff", borderRadius: "10px", borderLeft: "4px solid var(--primary)", boxShadow: "0 2px 8px rgba(91,13,31,0.06)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#1a7a2f", border: "2px solid #1a7a2f" }} />
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>Both free (bookable)</span>
+            </div>
+            {hasOfficeHours && (
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#6a1b9a", border: "2px solid #6a1b9a" }} />
+                <span style={{ fontSize: "13px", fontWeight: 600 }}>Office hours (bookable)</span>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#e65100", border: "2px solid #e65100" }} />
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>Teacher free only</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#1565c0", border: "2px solid #1565c0" }} />
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>You free only</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#f5f2ed", border: "2px solid var(--border)" }} />
+              <span style={{ fontSize: "13px", fontWeight: 600 }}>Neither free</span>
+            </div>
+          </div>
+        )}
+      </div>
+
       <div style={{ overflowX: "auto", border: "2px solid var(--primary)", borderRadius: "12px", overflow: "hidden", boxShadow: "0 4px 20px rgba(91,13,31,0.08)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
@@ -184,6 +288,7 @@ export default function TeacherAvailabilityPage() {
                   const teacherFree = teacherFreeSet.has(key);
                   const studentFree = studentFreeSet.has(key);
                   const isOH = officeHoursSet.has(key);
+                  const bookable = (teacherFree && studentFree) || isOH;
 
                   let backgroundColor = "#f5f2ed";
                   let cellBorder = "2px solid var(--primary)";
@@ -196,15 +301,19 @@ export default function TeacherAvailabilityPage() {
                   return (
                     <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "#fff", borderBottom: "1px solid #ede4e6" }}>
                       <button
+                        type="button"
+                        onClick={() => handleSlotClick(day, period)}
                         style={{
                           width: "100%",
                           padding: "12px 0",
                           borderRadius: "8px",
                           border: cellBorder,
                           backgroundColor,
-                          color: "#fff",
+                          color: backgroundColor === "#f5f2ed" ? "var(--muted)" : "#fff",
                           fontWeight: 700,
                           fontSize: "13px",
+                          cursor: bookable ? "pointer" : "default",
+                          opacity: bookable ? 1 : 0.7,
                         }}
                       >
                         {isOH ? "OH" : period}
@@ -217,6 +326,132 @@ export default function TeacherAvailabilityPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Booking Modal */}
+      {modalOpen && selectedSlot && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.4)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => { setModalOpen(false); setMessage(""); }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: "14px",
+              padding: "32px",
+              maxWidth: "440px",
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "22px", fontWeight: 700, color: "var(--primary)", marginBottom: "8px" }}>
+              {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book Office Hours" : "Request Meeting"}
+            </h3>
+            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "20px" }}>
+              {teacherName} &middot; Day {selectedSlot.day} &middot; Period {selectedSlot.period}
+              {dayDates[selectedSlot.day] && (
+                <span> &middot; {formatScheduleDate(dayDates[selectedSlot.day])}</span>
+              )}
+            </p>
+
+            {!officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && (
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", fontWeight: 700, fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: "8px" }}>
+                  Reason for meeting (required)
+                </label>
+                <textarea
+                  value={studentNote}
+                  onChange={(e) => setStudentNote(e.target.value)}
+                  placeholder="What would you like to discuss?"
+                  rows={3}
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    border: "2px solid var(--border)",
+                    fontSize: "15px",
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            )}
+
+            {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && (
+              <div style={{ marginBottom: "16px" }}>
+                <label style={{ display: "block", fontWeight: 700, fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: "8px" }}>
+                  Note (optional)
+                </label>
+                <textarea
+                  value={studentNote}
+                  onChange={(e) => setStudentNote(e.target.value)}
+                  placeholder="Anything you want the teacher to know?"
+                  rows={2}
+                  style={{
+                    width: "100%",
+                    padding: "12px 14px",
+                    borderRadius: "8px",
+                    border: "2px solid var(--border)",
+                    fontSize: "15px",
+                    resize: "vertical",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            )}
+
+            {message && (
+              <div style={{ marginBottom: "12px", color: "var(--danger)", fontWeight: 600, fontSize: "14px" }}>
+                {message}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => { setModalOpen(false); setMessage(""); }}
+                style={{
+                  padding: "12px 20px",
+                  borderRadius: "8px",
+                  border: "2px solid var(--border)",
+                  background: "#fff",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleBook}
+                disabled={booking}
+                style={{
+                  padding: "12px 20px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "var(--primary)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  cursor: booking ? "not-allowed" : "pointer",
+                  opacity: booking ? 0.7 : 1,
+                }}
+              >
+                {booking ? "Booking..." : officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book" : "Send Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
