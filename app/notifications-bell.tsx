@@ -93,7 +93,7 @@ export default function NotificationsBell() {
               width: "12px",
               height: "12px",
               borderRadius: "50%",
-              background: "var(--accent)",
+              background: "#d32f2f",
               border: "2px solid #fff",
             }}
           />

@@ -161,7 +161,7 @@ export default function TeacherAvailabilityPage() {
             <tr>
               <th style={{ textAlign: "left", padding: "14px 12px", background: "var(--primary)", color: "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em" }}>Period</th>
               {orderedDays.map((day) => (
-                <th key={day} style={{ padding: "14px 12px", background: day === todayCycleDay ? "#f5efd6" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em" }}>
+                <th key={day} style={{ padding: "14px 12px", background: day === todayCycleDay ? "var(--primary-soft)" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em" }}>
                   <div>
                     Day {day}
                     {dayDates[day] && (
@@ -194,7 +194,7 @@ export default function TeacherAvailabilityPage() {
                   else cellBorder = "2px solid var(--border)";
 
                   return (
-                    <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "#f5efd6" : "transparent" }}>
+                    <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "transparent" }}>
                       <button
                         style={{
                           width: "100%",
