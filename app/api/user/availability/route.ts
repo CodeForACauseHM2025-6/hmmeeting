@@ -80,12 +80,15 @@ export async function GET(request: Request) {
       (slot) => slot.type === "OFFICE_HOURS" || !blockedSet.has(`${slot.day}-${slot.period}`)
     );
 
-    return Response.json(filteredAvailability.map((slot) => ({
-      id: slot.id,
-      day: slot.day,
-      period: slot.period,
-      type: slot.type,
-    })));
+    return Response.json({
+      room: teacher.room ?? null,
+      slots: filteredAvailability.map((slot) => ({
+        id: slot.id,
+        day: slot.day,
+        period: slot.period,
+        type: slot.type,
+      })),
+    });
   }
 
   const { error, teacher } = await getTeacherForSession(session.user.email);

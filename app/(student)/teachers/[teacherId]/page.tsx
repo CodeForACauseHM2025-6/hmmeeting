@@ -41,6 +41,7 @@ export default function TeacherAvailabilityPage() {
   const [booking, setBooking] = useState(false);
   const [showLegend, setShowLegend] = useState(false);
   const [studentNote, setStudentNote] = useState("");
+  const [teacherRoom, setTeacherRoom] = useState<string | null>(null);
 
   const teacherFreeSet = useMemo(
     () => new Set(availability.map((slot) => `${slot.day}-${slot.period}`)),
@@ -120,7 +121,9 @@ export default function TeacherAvailabilityPage() {
           setLoading(false);
           return;
         }
-        setAvailability(await response.json());
+        const data = await response.json();
+        setAvailability(data.slots ?? data);
+        if (data.room) setTeacherRoom(data.room);
       } catch {
         setMessage("Failed to load availability. Please try again.");
         setLoading(false);
@@ -360,12 +363,17 @@ export default function TeacherAvailabilityPage() {
             <h3 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "22px", fontWeight: 700, color: "var(--primary)", marginBottom: "8px" }}>
               {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book Office Hours" : "Request Meeting"}
             </h3>
-            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "20px" }}>
+            <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "12px" }}>
               {teacherName} &middot; Day {selectedSlot.day} &middot; Period {selectedSlot.period}
               {dayDates[selectedSlot.day] && (
                 <span> &middot; {formatScheduleDate(dayDates[selectedSlot.day])}</span>
               )}
             </p>
+            {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && teacherRoom && (
+              <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--primary)", marginBottom: "20px" }}>
+                Room: {teacherRoom}
+              </p>
+            )}
 
             {!officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && (
               <div style={{ marginBottom: "16px" }}>

@@ -263,11 +263,15 @@ export default function SetNamePage() {
                   width: '100%',
                   padding: '12px 14px',
                   fontSize: '15px',
-                  border: '2px solid var(--border)',
+                  border: !fullName.trim() && !isViewOnly ? '2px solid var(--danger)' : '2px solid var(--border)',
                   borderRadius: '8px',
                   backgroundColor: isViewOnly ? '#f5f2ed' : undefined,
+                  boxShadow: !fullName.trim() && !isViewOnly ? '0 0 0 3px rgba(185, 28, 28, 0.15)' : undefined,
                 }}
               />
+              {!fullName.trim() && !isViewOnly && (
+                <p style={{ color: 'var(--danger)', fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>Full name is required</p>
+              )}
             </div>
 
             <div>
@@ -324,18 +328,55 @@ export default function SetNamePage() {
                   maxWidth: '300px',
                   padding: '12px 14px',
                   fontSize: '15px',
-                  border: '2px solid var(--border)',
+                  border: !defaultRoom.trim() ? '2px solid var(--danger)' : '2px solid var(--border)',
                   borderRadius: '8px',
+                  boxShadow: !defaultRoom.trim() ? '0 0 0 3px rgba(185, 28, 28, 0.15)' : undefined,
                 }}
               />
-              <p style={{ color: '#666', fontSize: '13px', marginTop: '4px' }}>
-                This room will be auto-filled when students book your office hours.
-              </p>
+              {!defaultRoom.trim() ? (
+                <p style={{ color: 'var(--danger)', fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>
+                  Room number is required to set your schedule
+                </p>
+              ) : (
+                <p style={{ color: '#666', fontSize: '13px', marginTop: '4px' }}>
+                  This room will be auto-filled when students book your office hours.
+                </p>
+              )}
             </div>
           )}
         </div>
 
-        {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && (
+        {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && !fullName.trim() && !isViewOnly && (
+          <div style={{
+            borderLeft: '4px solid var(--border)',
+            borderRadius: '10px',
+            padding: '28px',
+            background: '#fafafa',
+            color: 'var(--muted)',
+            fontWeight: 600,
+            fontSize: '15px',
+          }}>
+            {role === 'TEACHER'
+              ? 'Set your full name and room number above to configure your schedule.'
+              : 'Set your full name above to configure your schedule.'}
+          </div>
+        )}
+
+        {role === 'TEACHER' && fullName.trim() && !defaultRoom.trim() && !isViewOnly && (
+          <div style={{
+            borderLeft: '4px solid var(--border)',
+            borderRadius: '10px',
+            padding: '28px',
+            background: '#fafafa',
+            color: 'var(--muted)',
+            fontWeight: 600,
+            fontSize: '15px',
+          }}>
+            Set your room number above to configure your schedule.
+          </div>
+        )}
+
+        {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && fullName.trim() && (role !== 'TEACHER' || defaultRoom.trim()) && (
           <div
             style={{
               borderLeft: '4px solid var(--primary)',
@@ -360,10 +401,10 @@ export default function SetNamePage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span
                     style={{
-                      width: '20px',
-                      height: '20px',
+                      width: '24px',
+                      height: '24px',
                       borderRadius: '4px',
-                      border: `1px solid ${PRIMARY}`,
+                      border: '2px solid var(--primary)',
                       background: '#fff',
                     }}
                   />
@@ -372,11 +413,11 @@ export default function SetNamePage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span
                     style={{
-                      width: '20px',
-                      height: '20px',
+                      width: '24px',
+                      height: '24px',
                       borderRadius: '4px',
-                      border: `1px solid ${PRIMARY}`,
-                      background: '#2e7d32',
+                      border: '2px solid #1a7a2f',
+                      background: '#1a7a2f',
                     }}
                   />
                   <span style={{ fontSize: '13px', color: '#555' }}>Free</span>
@@ -384,11 +425,11 @@ export default function SetNamePage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span
                     style={{
-                      width: '20px',
-                      height: '20px',
+                      width: '24px',
+                      height: '24px',
                       borderRadius: '4px',
-                      border: `1px solid ${PRIMARY}`,
-                      background: '#7b1fa2',
+                      border: '2px solid #6a1b9a',
+                      background: '#6a1b9a',
                     }}
                   />
                   <span style={{ fontSize: '13px', color: '#555' }}>Office Hours</span>
@@ -400,9 +441,9 @@ export default function SetNamePage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '8px 12px' }}>Period</th>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Period</th>
                     {DAYS.map((day) => (
-                      <th key={day} style={{ padding: '8px 12px', color: PRIMARY }}>
+                      <th key={day} style={{ padding: '8px 12px', color: PRIMARY, fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Day {day}
                       </th>
                     ))}
@@ -421,11 +462,11 @@ export default function SetNamePage() {
                           let color = PRIMARY;
                           let label = 'Busy';
                           if (state === 'FREE') {
-                            bg = '#2e7d32';
+                            bg = '#1a7a2f';
                             color = '#fff';
                             label = 'Free';
                           } else if (state === 'OFFICE_HOURS') {
-                            bg = '#7b1fa2';
+                            bg = '#6a1b9a';
                             color = '#fff';
                             label = 'OH';
                           }
@@ -437,12 +478,12 @@ export default function SetNamePage() {
                                 disabled={isViewOnly}
                                 style={{
                                   width: '100%',
-                                  padding: '10px 0',
+                                  padding: '12px 0',
                                   borderRadius: '8px',
-                                  border: `1px solid ${PRIMARY}`,
+                                  border: '2px solid var(--primary)',
                                   backgroundColor: bg,
                                   color,
-                                  fontWeight: 600,
+                                  fontWeight: 700,
                                   cursor: isViewOnly ? 'default' : 'pointer',
                                 }}
                               >
@@ -462,12 +503,12 @@ export default function SetNamePage() {
                               disabled={isViewOnly}
                               style={{
                                 width: '100%',
-                                padding: '10px 0',
+                                padding: '12px 0',
                                 borderRadius: '8px',
-                                border: `1px solid ${PRIMARY}`,
+                                border: '2px solid var(--primary)',
                                 backgroundColor: active ? PRIMARY : '#fff',
                                 color: active ? '#fff' : PRIMARY,
-                                fontWeight: 600,
+                                fontWeight: 700,
                                 cursor: isViewOnly ? 'default' : 'pointer',
                               }}
                             >
@@ -490,14 +531,17 @@ export default function SetNamePage() {
             onClick={() => signOut({ callbackUrl: '/login' })}
             style={{
               marginTop: '24px',
-              padding: '12px 20px',
-              fontSize: '16px',
+              padding: '16px 24px',
+              fontSize: '15px',
               backgroundColor: PRIMARY,
               color: 'white',
               border: 'none',
-              borderRadius: '8px',
+              borderRadius: '10px',
               cursor: 'pointer',
               width: '100%',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              fontWeight: 700,
             }}
           >
             Logout
