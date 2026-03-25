@@ -176,7 +176,7 @@ export async function GET(request: Request) {
           <input type="hidden" name="token" value="${escapeHtml(token)}">
           <input type="hidden" name="action" value="accept">
           <label for="room">Room <span class="required">*</span></label>
-          <input type="text" id="room" name="room" required placeholder="e.g. Room 204">
+          <input type="text" id="room" name="room" required placeholder="e.g. 315L">
           <label for="note">Note to student (optional)</label>
           <textarea id="note" name="note" placeholder="Any message for the student..."></textarea>
           <div style="margin-top: 24px;">

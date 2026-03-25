@@ -334,7 +334,7 @@ export default function SetNamePage() {
                 type="text"
                 value={defaultRoom}
                 onChange={(e) => setDefaultRoom(e.target.value)}
-                placeholder="e.g. Room 204"
+                placeholder="e.g. 315L"
                 style={{
                   width: '100%',
                   maxWidth: '300px',
