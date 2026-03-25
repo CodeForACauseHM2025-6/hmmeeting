@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Lora } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { auth } from "@/auth";
@@ -15,6 +15,12 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+const lora = Lora({
+  variable: "--font-lora",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -37,7 +43,7 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${lora.variable} antialiased`}
       >
         <Providers>
           <div
@@ -45,11 +51,11 @@ export default async function RootLayout({
               display: "flex",
               alignItems: "stretch",
               minHeight: "100vh",
-              background: "var(--primary-soft)",
+              background: "var(--background)",
             }}
           >
             <Sidebar role={role} isAuthenticated={Boolean(session?.user?.email)} />
-            <main style={{ flex: 1, minHeight: "100vh", background: "#fff", padding: "20px" }}>
+            <main style={{ flex: 1, minHeight: "100vh", background: "var(--surface)", padding: "32px 40px" }}>
               <NotificationsBell />
               {children}
             </main>

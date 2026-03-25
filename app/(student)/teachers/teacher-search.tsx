@@ -41,13 +41,13 @@ export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps)
       {bookingSuccess && (
         <div
           style={{
-            padding: "12px 16px",
-            background: "#e8f5e9",
-            border: "1px solid #4caf50",
-            borderRadius: "8px",
-            color: "#2e7d32",
+            padding: "14px 18px",
+            background: "#ecfdf5",
+            border: "2px solid var(--success)",
+            borderRadius: "10px",
+            color: "var(--success)",
             marginBottom: "16px",
-            fontWeight: 600,
+            fontWeight: 700,
           }}
         >
           Meeting request sent successfully!
@@ -55,14 +55,15 @@ export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps)
       )}
       <div
         style={{
-          border: "1px solid var(--primary)",
-          borderRadius: "12px",
-          padding: "20px",
+          border: "none",
+          borderLeft: "4px solid var(--primary)",
+          borderRadius: "10px",
+          padding: "28px",
           background: "#fff",
-          boxShadow: "0 8px 16px rgba(0,0,0,0.04)",
+          boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
         }}
       >
-      <label style={{ display: "block", marginBottom: "8px", fontWeight: 600 }}>
+      <label style={{ display: "block", marginBottom: "8px", fontWeight: 700, fontSize: "13px", textTransform: "uppercase" as const, letterSpacing: "0.05em", color: "var(--muted)" }}>
         {isAdmin ? "Search for a user" : "Search for a teacher"}
       </label>
       <input
@@ -75,9 +76,10 @@ export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps)
         placeholder="Start typing a name or email..."
         style={{
           width: "100%",
-          padding: "10px 12px",
+          padding: "14px 16px",
           borderRadius: "8px",
-          border: "1px solid #ccc",
+          border: "2px solid var(--border)",
+          fontSize: "15px",
         }}
       />
 
@@ -95,15 +97,14 @@ export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps)
                     style={{
                       width: "100%",
                       textAlign: "left",
-                      padding: "10px 12px",
-                      borderRadius: "8px",
-                      border: "1px solid #e0e0e0",
+                      padding: "14px 16px",
+                      borderRadius: "10px",
+                      border: "2px solid #f0ece6",
                       backgroundColor: "#fff",
                       cursor: "pointer",
-                      fontWeight: 600,
                     }}
                   >
-                    {teacher.fullName}
+                    <span style={{ fontWeight: 700, fontSize: "15px" }}>{teacher.fullName}</span>
                     <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
                       {teacher.email}
                     </div>
@@ -124,13 +125,16 @@ export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps)
         disabled={!selected}
         style={{
           marginTop: "16px",
-          padding: "10px 16px",
-          backgroundColor: selected ? "var(--primary)" : "#b8b8b8",
+          padding: "14px 24px",
+          backgroundColor: selected ? "var(--primary)" : "#d4cfc8",
           color: "white",
-          borderRadius: "8px",
+          borderRadius: "10px",
           border: "none",
           cursor: selected ? "pointer" : "not-allowed",
-          fontWeight: 600,
+          fontWeight: 700,
+          textTransform: "uppercase" as const,
+          letterSpacing: "0.05em",
+          fontSize: "15px",
         }}
       >
         Show availability

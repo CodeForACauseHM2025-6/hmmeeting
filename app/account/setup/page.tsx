@@ -230,25 +230,26 @@ export default function SetNamePage() {
   return (
     <div style={{ padding: '50px', maxWidth: '1000px', margin: '0 auto' }}>
       <div>
-        <h1 style={{ fontSize: '28px', marginBottom: '12px', color: PRIMARY }}>
+        <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '34px', fontWeight: 700, marginBottom: '8px', color: PRIMARY }}>
           {isViewOnly ? 'User Schedule' : 'Account Settings'}
         </h1>
+        <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '28px' }} />
       </div>
 
       <div>
         <div
           style={{
-            border: `1px solid ${PRIMARY}`,
-            borderRadius: '12px',
-            padding: '24px',
-            marginBottom: '24px',
+            borderLeft: '4px solid var(--primary)',
+            borderRadius: '10px',
+            padding: '28px',
+            marginBottom: '32px',
             background: '#fff',
-            boxShadow: '0 12px 24px rgba(0,0,0,0.05)',
+            boxShadow: '0 4px 20px rgba(91,13,31,0.08)',
           }}
         >
           <div style={{ display: 'grid', gap: '16px', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
             <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)' }}>
                 Full name
               </label>
               <input
@@ -260,17 +261,17 @@ export default function SetNamePage() {
                 disabled={isViewOnly}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
-                  fontSize: '16px',
-                  border: '1px solid #ccc',
+                  padding: '12px 14px',
+                  fontSize: '15px',
+                  border: '2px solid var(--border)',
                   borderRadius: '8px',
-                  backgroundColor: isViewOnly ? '#f2f2f2' : undefined,
+                  backgroundColor: isViewOnly ? '#f5f2ed' : undefined,
                 }}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)' }}>
                 Email
               </label>
               <input
@@ -279,26 +280,27 @@ export default function SetNamePage() {
                 disabled
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
-                  fontSize: '16px',
-                  border: '1px solid #ccc',
+                  padding: '12px 14px',
+                  fontSize: '15px',
+                  border: '2px solid var(--border)',
                   borderRadius: '8px',
-                  backgroundColor: '#f2f2f2',
+                  backgroundColor: '#f5f2ed',
                 }}
               />
             </div>
 
             <div>
-              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)' }}>
                 Role
               </label>
               <div
                 style={{
-                  padding: '10px 12px',
-                  fontSize: '16px',
-                  border: '1px solid #ccc',
+                  padding: '12px 14px',
+                  fontSize: '15px',
+                  border: '2px solid var(--border)',
                   borderRadius: '8px',
-                  backgroundColor: '#fafafa',
+                  backgroundColor: '#f5f2ed',
+                  fontWeight: 600,
                 }}
               >
                 {role}
@@ -309,7 +311,7 @@ export default function SetNamePage() {
           {/* Default Room input for teachers */}
           {role === 'TEACHER' && !isViewOnly && (
             <div style={{ marginTop: '16px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>
+              <label style={{ display: 'block', marginBottom: '6px', fontWeight: 700, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--muted)' }}>
                 Default Room (for office hours)
               </label>
               <input
@@ -320,9 +322,9 @@ export default function SetNamePage() {
                 style={{
                   width: '100%',
                   maxWidth: '300px',
-                  padding: '10px 12px',
-                  fontSize: '16px',
-                  border: '1px solid #ccc',
+                  padding: '12px 14px',
+                  fontSize: '15px',
+                  border: '2px solid var(--border)',
                   borderRadius: '8px',
                 }}
               />
@@ -336,14 +338,14 @@ export default function SetNamePage() {
         {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && (
           <div
             style={{
-              border: `1px solid ${PRIMARY}`,
-              borderRadius: '12px',
-              padding: '24px',
+              borderLeft: '4px solid var(--primary)',
+              borderRadius: '10px',
+              padding: '28px',
               background: '#fff',
-              boxShadow: '0 12px 24px rgba(0,0,0,0.05)',
+              boxShadow: '0 4px 20px rgba(91,13,31,0.08)',
             }}
           >
-            <h2 style={{ fontSize: '20px', marginBottom: '8px', color: PRIMARY }}>
+            <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '24px', fontWeight: 700, marginBottom: '8px', color: PRIMARY }}>
               {role === 'TEACHER' ? 'Select your available periods' : 'Select your free periods'}
             </h2>
             <p style={{ color: '#555', marginBottom: '16px' }}>

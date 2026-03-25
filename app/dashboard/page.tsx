@@ -230,32 +230,35 @@ function StudentDashboard({ firstName }: { firstName: string }) {
 
     return (
         <div style={{ padding: "40px", maxWidth: "1000px", margin: "0 auto" }}>
-            <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
+            <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "34px", fontWeight: 700, marginBottom: "12px", color: "var(--primary)" }}>
                 {getGreeting()}, {firstName}
             </h1>
-            <p style={{ marginBottom: "20px", color: "#555" }}>
+            <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
+            <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>
                 This is your dashboard.
             </p>
 
             <div
                 style={{
-                    border: "1px solid var(--primary)",
-                    borderRadius: "12px",
-                    padding: "20px",
+                    borderLeft: "4px solid var(--primary)",
+                    borderRadius: "10px",
+                    padding: "28px",
                     background: "#fff",
-                    boxShadow: "0 10px 20px rgba(0,0,0,0.05)",
+                    boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
                 }}
             >
-                <h2 style={{ fontSize: "20px", marginBottom: "8px", color: "var(--primary)" }}>
+                <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "22px", fontWeight: 700, marginBottom: "16px", color: "var(--primary)" }}>
                     Upcoming meetings
                 </h2>
                 {showBookingNotice && (
                     <div
                         style={{
                             background: "#e6f7e6",
-                            color: "#1b5e20",
-                            padding: "8px 12px",
-                            borderRadius: "8px",
+                            color: "var(--success)",
+                            border: "2px solid var(--success)",
+                            borderRadius: "10px",
+                            padding: "14px 18px",
+                            fontWeight: 700,
                             marginBottom: "12px",
                             display: "flex",
                             justifyContent: "space-between",
@@ -269,9 +272,9 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                             style={{
                                 background: "transparent",
                                 border: "none",
-                                color: "#1b5e20",
+                                color: "var(--success)",
                                 cursor: "pointer",
-                                fontWeight: 600,
+                                fontWeight: 700,
                             }}
                         >
                             ×
@@ -289,32 +292,34 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                             <li
                                 key={appointment.id}
                                 style={{
-                                    border: "1px solid #e0e0e0",
+                                    border: "2px solid #f0ece6",
                                     borderRadius: "10px",
-                                    padding: "12px 16px",
+                                    padding: "16px 20px",
+                                    borderLeft: "3px solid var(--accent)",
                                     marginBottom: "10px",
                                 }}
                             >
-                                <div style={{ fontWeight: 600 }}>
-                                    {appointment.status === "CANCELLED"
-                                        ? "CANCELLED: "
-                                        : appointment.status === "COMPLETED"
-                                          ? "COMPLETED: "
-                                          : ""}
+                                <div style={{ fontSize: '16px', fontWeight: 700 }}>
+                                    {appointment.status === "CANCELLED" ? (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#fef2f2', color: 'var(--danger)', marginRight: '8px' }}>Cancelled</span>
+                                    ) : appointment.status === "COMPLETED" ? (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f0fdf4', color: 'var(--success)', marginRight: '8px' }}>Completed</span>
+                                    ) : appointment.status === "CONFIRMED" ? (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--accent-soft)', color: 'var(--primary)', marginRight: '8px' }}>Confirmed</span>
+                                    ) : (
+                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f5f5f5', color: 'var(--muted)', marginRight: '8px' }}>Pending</span>
+                                    )}
                                     Day {appointment.day} • Period {appointment.period}
                                 </div>
                                 {appointment.meetingDate && (
-                                    <div style={{ color: "#777", fontSize: "13px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
                                         {appointment.meetingDate}
                                         {appointment.meetingTime ? ` • ${appointment.meetingTime}` : ""}
                                     </div>
                                 )}
-                                <div style={{ color: "#555" }}>
+                                <div style={{ color: "#555", marginTop: "4px" }}>
                                     Teacher: {appointment.teacherName} ({appointment.teacherEmail})
                                 </div>
-                                    <div style={{ color: "#777", fontSize: "13px" }}>
-                                        Status: {appointment.status}
-                                    </div>
                                     {appointment.room && (
                                         <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
                                             Room: {appointment.room}
@@ -338,13 +343,16 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                         }
                                         style={{
                                             marginTop: "8px",
-                                            padding: "6px 10px",
+                                            padding: "10px 18px",
                                             borderRadius: "6px",
-                                            border: "1px solid var(--primary)",
+                                            border: "2px solid var(--primary)",
                                             background: "#fff",
                                             color: "var(--primary)",
                                             cursor: "pointer",
-                                            fontWeight: 600,
+                                            fontWeight: 700,
+                                            fontSize: "13px",
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.04em",
                                         }}
                                     >
                                         Acknowledge
@@ -358,13 +366,16 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                             }
                                             style={{
                                                 marginTop: "8px",
-                                                padding: "6px 10px",
+                                                padding: "10px 18px",
                                                 borderRadius: "6px",
-                                                border: "1px solid var(--primary)",
+                                                border: "2px solid var(--primary)",
                                                 background: "#fff",
                                                 color: "var(--primary)",
                                                 cursor: "pointer",
-                                                fontWeight: 600,
+                                                fontWeight: 700,
+                                                fontSize: "13px",
+                                                textTransform: "uppercase",
+                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Acknowledge
@@ -376,13 +387,16 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                             type="button"
                                             onClick={() => cancelAppointment(appointment.id)}
                                             style={{
-                                                padding: "6px 10px",
+                                                padding: "10px 18px",
                                                 borderRadius: "6px",
-                                                border: "1px solid #d32f2f",
-                                                background: "#d32f2f",
+                                                border: "2px solid var(--danger)",
+                                                background: "var(--danger)",
                                                 color: "#fff",
                                                 cursor: "pointer",
-                                                fontWeight: 600,
+                                                fontWeight: 700,
+                                                fontSize: "13px",
+                                                textTransform: "uppercase",
+                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Confirm cancel
@@ -391,13 +405,16 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                             type="button"
                                             onClick={() => setPendingCancelId(null)}
                                             style={{
-                                                padding: "6px 10px",
+                                                padding: "10px 18px",
                                                 borderRadius: "6px",
-                                                border: "1px solid #ccc",
+                                                border: "2px solid var(--border)",
                                                 background: "#fff",
-                                                color: "#555",
+                                                color: "var(--muted)",
                                                 cursor: "pointer",
-                                                fontWeight: 600,
+                                                fontWeight: 700,
+                                                fontSize: "13px",
+                                                textTransform: "uppercase",
+                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Keep meeting
@@ -410,13 +427,16 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                                 type="button"
                                                 onClick={() => completeAppointment(appointment.id)}
                                                 style={{
-                                                    padding: "6px 10px",
+                                                    padding: "10px 18px",
                                                     borderRadius: "6px",
-                                                    border: "1px solid var(--primary)",
+                                                    border: "2px solid var(--primary)",
                                                     background: "var(--primary)",
                                                     color: "#fff",
                                                     cursor: "pointer",
-                                                    fontWeight: 600,
+                                                    fontWeight: 700,
+                                                    fontSize: "13px",
+                                                    textTransform: "uppercase",
+                                                    letterSpacing: "0.04em",
                                                 }}
                                             >
                                                 Mark as completed
@@ -426,13 +446,16 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                             type="button"
                                             onClick={() => setPendingCancelId(appointment.id)}
                                             style={{
-                                                padding: "6px 10px",
+                                                padding: "10px 18px",
                                                 borderRadius: "6px",
-                                                border: "1px solid #d32f2f",
+                                                border: "2px solid var(--danger)",
                                                 background: "#fff",
-                                                color: "#d32f2f",
+                                                color: "var(--danger)",
                                                 cursor: "pointer",
-                                                fontWeight: 600,
+                                                fontWeight: 700,
+                                                fontSize: "13px",
+                                                textTransform: "uppercase",
+                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Cancel

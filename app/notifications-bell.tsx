@@ -57,15 +57,16 @@ export default function NotificationsBell() {
           type="button"
           onClick={() => setOpen((prev) => !prev)}
           style={{
-            width: "40px",
-            height: "40px",
+            width: "44px",
+            height: "44px",
             borderRadius: "50%",
-            border: "1px solid var(--primary)",
+            border: "2px solid var(--primary)",
             background: "#fff",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(91,13,31,0.1)",
           }}
           aria-label="Notifications"
         >
@@ -89,10 +90,10 @@ export default function NotificationsBell() {
               position: "absolute",
               top: "2px",
               right: "2px",
-              width: "10px",
-              height: "10px",
+              width: "12px",
+              height: "12px",
               borderRadius: "50%",
-              background: "#d32f2f",
+              background: "var(--accent)",
               border: "2px solid #fff",
             }}
           />
@@ -107,13 +108,13 @@ export default function NotificationsBell() {
             marginTop: "10px",
             width: "320px",
             background: "#fff",
-            border: "1px solid var(--primary)",
-            borderRadius: "12px",
-            boxShadow: "0 10px 20px rgba(0,0,0,0.1)",
-            padding: "12px",
+            border: "2px solid var(--primary)",
+            borderRadius: "14px",
+            boxShadow: "0 12px 40px rgba(91,13,31,0.15)",
+            padding: "16px",
           }}
         >
-          <div style={{ fontWeight: 700, marginBottom: "8px", color: "var(--primary)" }}>
+          <div style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "18px", fontWeight: 700, marginBottom: "8px", color: "var(--primary)" }}>
             Notifications
           </div>
           {notifications.length === 0 ? (
@@ -124,12 +125,12 @@ export default function NotificationsBell() {
                 <li
                   key={item.id}
                   style={{
-                    padding: "10px",
+                    padding: "14px",
                     borderRadius: "10px",
                     border:
                       hoveredId === item.id
-                        ? "1px solid var(--primary)"
-                        : "1px solid #eee",
+                        ? "2px solid var(--primary)"
+                        : "2px solid #f0ece6",
                     marginBottom: "8px",
                     cursor: "pointer",
                   }}
@@ -140,8 +141,8 @@ export default function NotificationsBell() {
                     setNotifications((prev) => prev.filter((n) => n.id !== item.id));
                   }}
                 >
-                  <div style={{ fontWeight: 600 }}>{item.message}</div>
-                  <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                  <div style={{ fontWeight: 700 }}>{item.message}</div>
+                  <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
                     {item.meetingDate ? (
                       <>
                         {item.meetingDate}

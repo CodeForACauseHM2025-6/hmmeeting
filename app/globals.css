@@ -1,10 +1,19 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #3a0b14;
+  --background: #f5f2ed;
+  --foreground: #1a1a1a;
   --primary: #5b0d1f;
-  --primary-soft: #f8f2f3;
+  --primary-dark: #3d0915;
+  --primary-light: #8a1a35;
+  --primary-soft: #ede4e6;
+  --accent: #c9a227;
+  --accent-soft: #f5efd6;
+  --surface: #ffffff;
+  --border: #d4cfc8;
+  --muted: #71706e;
+  --danger: #b91c1c;
+  --success: #15803d;
 }
 
 @theme inline {
@@ -17,5 +26,41 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans, system-ui, -apple-system, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-lora, Georgia, 'Times New Roman', serif);
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px rgba(91, 13, 31, 0.12);
+}
+
+button {
+  transition: all 0.15s ease;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--primary-soft);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
 }

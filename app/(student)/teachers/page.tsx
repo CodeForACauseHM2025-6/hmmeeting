@@ -71,10 +71,11 @@ export default async function TeachersPage() {
 
   return (
     <div style={{ padding: "40px", maxWidth: "900px", margin: "0 auto" }}>
-      <h1 style={{ fontSize: "28px", marginBottom: "12px", color: "var(--primary)" }}>
+      <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '34px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>
         {heading}
       </h1>
-      <p style={{ color: "#555", marginBottom: "24px" }}>
+      <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
+      <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>
         {subtitle}
       </p>
       {userOptions.length === 0 ? (

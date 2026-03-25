@@ -188,20 +188,22 @@ export default async function AdminUsersPage() {
 
   return (
     <div style={{ padding: "40px", maxWidth: "900px", margin: "0 auto" }}>
-      <h1 style={{ fontSize: "28px", marginBottom: "20px", color: "var(--primary)" }}>
+      <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '34px', fontWeight: 700, marginBottom: '8px', color: 'var(--primary)' }}>
         User Directory
       </h1>
+      <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '32px' }} />
       <div
         style={{
-          border: "1px solid var(--primary)",
-          borderRadius: "12px",
-          padding: "20px",
-          marginBottom: "24px",
-          background: "#fff",
-          boxShadow: "0 10px 20px rgba(0,0,0,0.05)",
+          border: 'none',
+          borderLeft: '4px solid var(--primary)',
+          borderRadius: '10px',
+          padding: '28px',
+          marginBottom: '28px',
+          background: '#fff',
+          boxShadow: '0 4px 20px rgba(91,13,31,0.08)',
         }}
       >
-        <h2 style={{ fontSize: "20px", marginBottom: "12px", color: "var(--primary)" }}>
+        <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '22px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>
           Add or update a user role
         </h2>
         <form action={upsertUserRole} style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
@@ -210,9 +212,10 @@ export default async function AdminUsersPage() {
             placeholder="Full name"
             required
             style={{
-              padding: "10px 12px",
-              borderRadius: "8px",
-              border: "1px solid #ccc",
+              padding: '12px 14px',
+              borderRadius: '8px',
+              border: '2px solid var(--border)',
+              fontSize: '15px',
             }}
           />
           <input
@@ -220,18 +223,20 @@ export default async function AdminUsersPage() {
             placeholder="Email"
             required
             style={{
-              padding: "10px 12px",
-              borderRadius: "8px",
-              border: "1px solid #ccc",
+              padding: '12px 14px',
+              borderRadius: '8px',
+              border: '2px solid var(--border)',
+              fontSize: '15px',
             }}
           />
           <select
             name="role"
             defaultValue="TEACHER"
             style={{
-              padding: "10px 12px",
-              borderRadius: "8px",
-              border: "1px solid #ccc",
+              padding: '12px 14px',
+              borderRadius: '8px',
+              border: '2px solid var(--border)',
+              fontSize: '15px',
             }}
           >
             {ROLE_OPTIONS.map((role) => (
@@ -243,13 +248,16 @@ export default async function AdminUsersPage() {
           <button
             type="submit"
             style={{
-              padding: "10px 16px",
-              borderRadius: "8px",
-              border: "none",
-              backgroundColor: "var(--primary)",
-              color: "#fff",
-              fontWeight: 600,
-              cursor: "pointer",
+              padding: '14px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: 'var(--primary)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '14px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
             }}
           >
             Save role
@@ -259,15 +267,16 @@ export default async function AdminUsersPage() {
 
       <div
         style={{
-          border: "1px solid var(--primary)",
-          borderRadius: "12px",
-          padding: "20px",
-          marginBottom: "24px",
-          background: "#fff",
-          boxShadow: "0 10px 20px rgba(0,0,0,0.05)",
+          border: 'none',
+          borderLeft: '4px solid var(--primary)',
+          borderRadius: '10px',
+          padding: '28px',
+          marginBottom: '28px',
+          background: '#fff',
+          boxShadow: '0 4px 20px rgba(91,13,31,0.08)',
         }}
       >
-        <h2 style={{ fontSize: "20px", marginBottom: "12px", color: "var(--primary)" }}>
+        <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '22px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>
           Schedule week
         </h2>
         <div style={{ color: "#555", marginBottom: "12px" }}>
@@ -287,9 +296,10 @@ export default async function AdminUsersPage() {
             name="week"
             defaultValue={String(currentWeekValue)}
             style={{
-              padding: "10px 12px",
-              borderRadius: "8px",
-              border: "1px solid #ccc",
+              padding: '12px 14px',
+              borderRadius: '8px',
+              border: '2px solid var(--border)',
+              fontSize: '15px',
             }}
           >
             <option value="1">Week 1</option>
@@ -298,13 +308,16 @@ export default async function AdminUsersPage() {
           <button
             type="submit"
             style={{
-              padding: "10px 16px",
-              borderRadius: "8px",
-              border: "none",
-              backgroundColor: "var(--primary)",
-              color: "#fff",
-              fontWeight: 600,
-              cursor: "pointer",
+              padding: '14px 20px',
+              borderRadius: '8px',
+              border: 'none',
+              backgroundColor: 'var(--primary)',
+              color: '#fff',
+              fontWeight: 700,
+              fontSize: '14px',
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
             }}
           >
             Save week

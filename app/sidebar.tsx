@@ -46,20 +46,22 @@ export default function Sidebar({ role, isAuthenticated }: SidebarProps) {
   return (
     <aside
       style={{
-        width: "220px",
-        background: PRIMARY,
+        width: "260px",
+        background: "linear-gradient(180deg, #3d0915 0%, #5b0d1f 100%)",
         color: "#fff",
-        padding: "24px 16px",
+        padding: "28px 20px",
         display: "flex",
         flexDirection: "column",
-        gap: "16px",
         minHeight: "100vh",
       }}
     >
-      <div style={{ fontSize: "18px", fontWeight: 700, letterSpacing: "0.5px" }}>
-        Horace Mann Scheduler
+      <div>
+        <div style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "22px", fontWeight: 700, letterSpacing: "0.5px" }}>
+          Horace Mann Scheduler
+        </div>
+        <div style={{ background: "var(--accent)", height: "3px", width: "40px", borderRadius: "2px", marginTop: "8px" }} />
       </div>
-      <nav style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+      <nav style={{ display: "flex", flexDirection: "column", gap: "8px", marginTop: "28px" }}>
         {navItems.map((item) => {
           const active = pathname === item.href;
           return (
@@ -69,10 +71,12 @@ export default function Sidebar({ role, isAuthenticated }: SidebarProps) {
               style={{
                 color: "#fff",
                 textDecoration: "none",
-                padding: "8px 10px",
+                padding: "12px 14px",
                 borderRadius: "8px",
-                background: active ? "rgba(255,255,255,0.2)" : "transparent",
-                fontWeight: active ? 600 : 500,
+                fontSize: "15px",
+                background: active ? "rgba(255,255,255,0.15)" : "transparent",
+                fontWeight: active ? 700 : 500,
+                borderLeft: active ? "3px solid var(--accent)" : "3px solid transparent",
               }}
             >
               {item.label}
@@ -86,7 +90,7 @@ export default function Sidebar({ role, isAuthenticated }: SidebarProps) {
             Login
           </Link>
         )}
-        <div style={{ fontSize: "12px", opacity: 0.85 }}>Horace Mann School</div>
+        <div style={{ fontSize: "13px", opacity: 0.85, paddingTop: "16px", borderTop: "1px solid rgba(255,255,255,0.15)" }}>Horace Mann School</div>
       </div>
     </aside>
   );

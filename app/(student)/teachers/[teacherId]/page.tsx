@@ -148,20 +148,20 @@ export default function TeacherAvailabilityPage() {
   }, [teacherId, router]);
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading availability...</div>;
+    return <div style={{ padding: "40px 48px", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "18px", color: "var(--muted)" }}>Loading availability...</div>;
   }
 
   const hasOfficeHours = officeHoursSet.size > 0;
 
   return (
-    <div style={{ padding: "40px", maxWidth: "900px", margin: "0 auto" }}>
+    <div style={{ padding: "40px 48px", maxWidth: "900px", margin: "0 auto" }}>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "8px 12px" }}>Period</th>
+              <th style={{ textAlign: "left", padding: "14px 12px", background: "var(--primary)", color: "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em" }}>Period</th>
               {orderedDays.map((day) => (
-                <th key={day} style={{ padding: "8px 12px", backgroundColor: day === todayCycleDay ? "#c0c0c0" : "transparent", borderRadius: "8px" }}>
+                <th key={day} style={{ padding: "14px 12px", background: day === todayCycleDay ? "#f5efd6" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em" }}>
                   <div>
                     Day {day}
                     {dayDates[day] && (
@@ -178,29 +178,33 @@ export default function TeacherAvailabilityPage() {
           <tbody>
             {PERIODS.map((period) => (
               <tr key={period}>
-                <td style={{ padding: "8px 12px", fontWeight: 600 }}>{period}</td>
+                <td style={{ fontWeight: 700, fontSize: "15px", padding: "12px 14px", color: "var(--primary)" }}>{period}</td>
                 {orderedDays.map((day) => {
                   const key = `${day}-${period}`;
                   const teacherFree = teacherFreeSet.has(key);
                   const studentFree = studentFreeSet.has(key);
                   const isOH = officeHoursSet.has(key);
 
-                  let backgroundColor = "#ffffff";
-                  if (isOH) backgroundColor = "#7b1fa2";
-                  else if (teacherFree && studentFree) backgroundColor = "#2e7d32";
-                  else if (studentFree) backgroundColor = "#1e88e5";
-                  else if (teacherFree) backgroundColor = "#f57c00";
+                  let backgroundColor = "#f5f2ed";
+                  let cellBorder = "2px solid var(--primary)";
+                  if (isOH) backgroundColor = "#6a1b9a";
+                  else if (teacherFree && studentFree) backgroundColor = "#1a7a2f";
+                  else if (studentFree) backgroundColor = "#1565c0";
+                  else if (teacherFree) backgroundColor = "#e65100";
+                  else cellBorder = "2px solid var(--border)";
 
                   return (
-                    <td key={key} style={{ padding: "8px 12px", backgroundColor: day === todayCycleDay ? "#c0c0c0" : "transparent" }}>
+                    <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "#f5efd6" : "transparent" }}>
                       <button
                         style={{
                           width: "100%",
-                          padding: "10px 0",
+                          padding: "12px 0",
                           borderRadius: "8px",
-                          border: "1px solid var(--primary)",
+                          border: cellBorder,
                           backgroundColor,
                           color: "#fff",
+                          fontWeight: 700,
+                          fontSize: "13px",
                         }}
                       >
                         {isOH ? "OH" : period}
