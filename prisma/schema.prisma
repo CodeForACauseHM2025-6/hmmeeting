@@ -109,6 +109,7 @@ enum Role {
 enum Period {
   A
   B
+  BREAK
   C
   D
   E
