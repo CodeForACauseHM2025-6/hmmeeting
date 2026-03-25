@@ -1,4 +1,4 @@
-export const PERIODS = ["A", "B", "C", "D", "E", "F", "G", "H"] as const;
+export const PERIODS = ["A", "B", "BREAK", "C", "D", "E", "F", "G", "H"] as const;
 export type PeriodValue = (typeof PERIODS)[number];
 
 export const DAYS = Array.from({ length: 10 }, (_, index) => index + 1);
@@ -17,6 +17,7 @@ export const PERIOD_TIME_RANGES: Record<
 > = {
   A: { start: { hour: 8, minute: 25 }, end: { hour: 9, minute: 10 }, label: "8:25 AM - 9:10 AM" },
   B: { start: { hour: 9, minute: 15 }, end: { hour: 10, minute: 0 }, label: "9:15 AM - 10:00 AM" },
+  BREAK: { start: { hour: 10, minute: 0 }, end: { hour: 10, minute: 20 }, label: "10:00 AM - 10:20 AM" },
   C: { start: { hour: 10, minute: 20 }, end: { hour: 11, minute: 5 }, label: "10:20 AM - 11:05 AM" },
   D: { start: { hour: 11, minute: 10 }, end: { hour: 11, minute: 55 }, label: "11:10 AM - 11:55 AM" },
   E: { start: { hour: 12, minute: 0 }, end: { hour: 12, minute: 45 }, label: "12:00 PM - 12:45 PM" },

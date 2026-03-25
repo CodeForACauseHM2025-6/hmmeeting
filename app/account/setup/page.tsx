@@ -74,6 +74,12 @@ export default function SetNamePage() {
             stateMap.set(key, slot.type === 'OFFICE_HOURS' ? 'OFFICE_HOURS' : 'FREE');
           }
         }
+        // Default BREAK to FREE for all days if no schedule saved yet
+        if (stateMap.size === 0) {
+          for (const day of DAYS) {
+            stateMap.set(`${day}-BREAK`, 'FREE');
+          }
+        }
         setSlotStates(stateMap);
         // Load default room
         setDefaultRoom(data?.teacher?.room ?? '');
@@ -87,6 +93,12 @@ export default function SetNamePage() {
         const initialSet = new Set(
           initialSlots.map((slot: FreePeriod) => `${slot.day}-${slot.period}`)
         );
+        // Default BREAK to free for all days if no schedule saved yet
+        if (initialSet.size === 0) {
+          for (const day of DAYS) {
+            initialSet.add(`${day}-BREAK`);
+          }
+        }
         setSelectedSlots(initialSet);
         setLastSavedKey(buildStudentSaveKey(resolvedName, initialSet));
       }

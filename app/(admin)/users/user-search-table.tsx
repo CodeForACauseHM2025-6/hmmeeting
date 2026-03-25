@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useRef, useEffect } from "react";
 
-const PERIODS = ["A", "B", "C", "D", "E", "F", "G", "H"] as const;
+const PERIODS = ["A", "B", "BREAK", "C", "D", "E", "F", "G", "H"] as const;
 const DAYS = Array.from({ length: 10 }, (_, i) => i + 1);
 
 type UserWithRole = {
