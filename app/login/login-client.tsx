@@ -23,15 +23,16 @@ export default function LoginClient({ error }: LoginClientProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "#3d0915" }}>
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)" }}>
       <div
         style={{
           borderRadius: "16px",
           overflow: "hidden",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+          boxShadow: "0 12px 40px rgba(91,13,31,0.12)",
+          border: "2px solid var(--primary)",
         }}
       >
-        <div style={{ background: "var(--accent)", height: "4px" }} />
+        <div style={{ background: "var(--primary)", height: "4px" }} />
         <div
           style={{
             background: "var(--surface)",
