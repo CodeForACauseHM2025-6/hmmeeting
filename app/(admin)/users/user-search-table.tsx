@@ -489,7 +489,7 @@ export default function UserSearchTable({
                       {PERIODS.map((period) => (
                         <tr key={period}>
                           <td style={{ padding: "6px 8px", fontWeight: 600, borderBottom: "1px solid #f0f0f0" }}>
-                            {period}
+                            {period === "BREAK" ? "Break" : period}
                           </td>
                           {DAYS.map((day) => {
                             const slot = scheduleData.schedule.find(

@@ -163,17 +163,10 @@ export default function TeacherAvailabilityPage() {
   const hasOfficeHours = officeHoursSet.size > 0;
 
   const handleSlotClick = (day: number, period: PeriodValue) => {
-    const key = `${day}-${period}`;
-    const teacherFree = teacherFreeSet.has(key);
-    const isOH = officeHoursSet.has(key);
-
-    // Allow booking any slot where the teacher is available
-    if (teacherFree || isOH) {
-      setSelectedSlot({ day, period });
-      setStudentNote("");
-      setMessage("");
-      setModalOpen(true);
-    }
+    setSelectedSlot({ day, period });
+    setStudentNote("");
+    setMessage("");
+    setModalOpen(true);
   };
 
   const handleBook = async () => {
@@ -290,14 +283,12 @@ export default function TeacherAvailabilityPage() {
           <tbody>
             {PERIODS.map((period) => (
               <tr key={period}>
-                <td style={{ fontWeight: 700, fontSize: "15px", padding: "12px 14px", color: "var(--primary)", borderBottom: "1px solid #ede4e6", background: "#fff" }}>{period}</td>
+                <td style={{ fontWeight: 700, fontSize: "15px", padding: "12px 14px", color: "var(--primary)", borderBottom: "1px solid #ede4e6", background: "#fff" }}>{period === "BREAK" ? "Break" : period}</td>
                 {orderedDays.map((day) => {
                   const key = `${day}-${period}`;
                   const teacherFree = teacherFreeSet.has(key);
                   const studentFree = studentFreeSet.has(key);
                   const isOH = officeHoursSet.has(key);
-                  const bookable = teacherFree || isOH;
-
                   let backgroundColor = "#f5f2ed";
                   let cellBorder = "2px solid var(--primary)";
                   if (isOH) backgroundColor = "#6a1b9a";
@@ -305,6 +296,8 @@ export default function TeacherAvailabilityPage() {
                   else if (studentFree) backgroundColor = "#1565c0";
                   else if (teacherFree) backgroundColor = "#e65100";
                   else cellBorder = "2px solid var(--border)";
+
+                  const displayLabel = isOH ? "OH" : period === "BREAK" ? "Break" : period;
 
                   return (
                     <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "#fff", borderBottom: "1px solid #ede4e6" }}>
@@ -320,11 +313,10 @@ export default function TeacherAvailabilityPage() {
                           color: backgroundColor === "#f5f2ed" ? "var(--muted)" : "#fff",
                           fontWeight: 700,
                           fontSize: "13px",
-                          cursor: bookable ? "pointer" : "default",
-                          opacity: bookable ? 1 : 0.7,
+                          cursor: "pointer",
                         }}
                       >
-                        {isOH ? "OH" : period}
+                        {displayLabel}
                       </button>
                     </td>
                   );
@@ -364,7 +356,7 @@ export default function TeacherAvailabilityPage() {
               {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book Office Hours" : "Request Meeting"}
             </h3>
             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "12px" }}>
-              {teacherName} &middot; Day {selectedSlot.day} &middot; Period {selectedSlot.period}
+              {teacherName} &middot; Day {selectedSlot.day} &middot; {selectedSlot.period === "BREAK" ? "Break" : `Period ${selectedSlot.period}`}
               {dayDates[selectedSlot.day] && (
                 <span> &middot; {formatScheduleDate(dayDates[selectedSlot.day])}</span>
               )}
@@ -374,6 +366,27 @@ export default function TeacherAvailabilityPage() {
                 Room: {teacherRoom}
               </p>
             )}
+
+            {/* Scheduling conflict warnings (exempt for BREAK period) */}
+            {selectedSlot.period !== "BREAK" && (() => {
+              const slotKey = `${selectedSlot.day}-${selectedSlot.period}`;
+              const tFree = teacherFreeSet.has(slotKey);
+              const sFree = studentFreeSet.has(slotKey);
+              const warnings: string[] = [];
+              if (!tFree && !sFree) warnings.push("Neither you nor the teacher is marked as free for this period.");
+              else if (!tFree) warnings.push("The teacher is not marked as free for this period.");
+              else if (!sFree) warnings.push("You are not marked as free for this period.");
+              if (warnings.length === 0) return null;
+              return (
+                <div style={{ marginBottom: "16px", padding: "10px 14px", borderRadius: "8px", border: "2px solid var(--danger)", background: "#fef2f2" }}>
+                  {warnings.map((w, i) => (
+                    <p key={i} style={{ color: "var(--danger)", fontWeight: 600, fontSize: "13px", margin: 0 }}>
+                      <span style={{ color: "var(--danger)", fontWeight: 700 }}>* </span>{w}
+                    </p>
+                  ))}
+                </div>
+              );
+            })()}
 
             {!officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && (
               <div style={{ marginBottom: "16px" }}>

@@ -464,7 +464,7 @@ export default function SetNamePage() {
                 <tbody>
                   {PERIODS.map((period) => (
                     <tr key={period}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600 }}>{period}</td>
+                      <td style={{ padding: '8px 12px', fontWeight: 600 }}>{period === 'BREAK' ? 'Break' : period}</td>
                       {DAYS.map((day) => {
                         const key = `${day}-${period}`;
 
