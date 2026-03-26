@@ -63,6 +63,12 @@ export default function SetNamePage() {
     async function loadProfile() {
       const response = await fetch('/api/user/information?includeSchedule=true');
       if (!response.ok) {
+        // New user — set BREAK as free by default and derive name
+        const derivedName = session?.user?.name || nameFromEmail(session?.user?.email ?? '');
+        setFullName(derivedName);
+        const breakDefaults = new Set(DAYS.map((day) => `${day}-BREAK`));
+        setSelectedSlots(breakDefaults);
+        setLastSavedKey(buildStudentSaveKey(derivedName, breakDefaults));
         setLoadingProfile(false);
         setHasInitialized(true);
         return;

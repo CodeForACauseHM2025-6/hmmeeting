@@ -150,7 +150,7 @@ export default function NotificationsBell() {
                       </>
                     ) : (
                       <>
-                        Day {item.day} • Period {item.period}
+                        Day {item.day} • {item.period === "BREAK" ? "Break" : `Period ${item.period}`}
                       </>
                     )}
                   </div>

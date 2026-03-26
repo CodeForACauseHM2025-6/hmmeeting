@@ -309,7 +309,7 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                     ) : (
                                         <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f5f5f5', color: 'var(--muted)', marginRight: '8px' }}>Pending</span>
                                     )}
-                                    Day {appointment.day} • Period {appointment.period}
+                                    Day {appointment.day} • {appointment.period === "BREAK" ? "Break" : `Period ${appointment.period}`}
                                 </div>
                                 {appointment.meetingDate && (
                                     <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
@@ -497,7 +497,7 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                     marginBottom: "10px",
                                 }}
                             >
-                                <strong style={{ fontSize: '16px', fontWeight: 700 }}>Day {day.day}:</strong> {day.periods.join(", ")}
+                                <strong style={{ fontSize: '16px', fontWeight: 700 }}>Day {day.day}:</strong> {day.periods.map((p) => p === "BREAK" ? "Break" : p).join(", ")}
                             </li>
                         ))}
                     </ul>
@@ -695,7 +695,7 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                     ) : (
                                         <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f5f5f5', color: 'var(--muted)', marginRight: '8px' }}>Pending</span>
                                     )}
-                                    Day {appointment.day} • Period {appointment.period}
+                                    Day {appointment.day} • {appointment.period === "BREAK" ? "Break" : `Period ${appointment.period}`}
                                 </div>
                                 {appointment.meetingDate && (
                                     <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
