@@ -60,7 +60,9 @@ export default function SetNamePage() {
         return;
       }
       const data = await response.json();
-      const resolvedName = data?.fullName ?? session?.user?.name ?? '';
+      // Use OAuth name (from Google) as the authoritative name
+      const oauthName = session?.user?.name ?? '';
+      const resolvedName = oauthName || data?.fullName || '';
       const resolvedRole = data?.role ?? 'STUDENT';
       setFullName(resolvedName);
       setRole(resolvedRole);
@@ -267,23 +269,17 @@ export default function SetNamePage() {
               <input
                 type="text"
                 value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder="Enter your name"
-                required
-                disabled={isViewOnly}
+                disabled
                 style={{
                   width: '100%',
                   padding: '12px 14px',
                   fontSize: '15px',
-                  border: !fullName.trim() && !isViewOnly ? '2px solid var(--danger)' : '2px solid var(--border)',
+                  border: '2px solid var(--border)',
                   borderRadius: '8px',
-                  backgroundColor: isViewOnly ? '#f5f2ed' : undefined,
-                  boxShadow: !fullName.trim() && !isViewOnly ? '0 0 0 3px rgba(185, 28, 28, 0.15)' : undefined,
+                  backgroundColor: '#f5f2ed',
                 }}
               />
-              {!fullName.trim() && !isViewOnly && (
-                <p style={{ color: 'var(--danger)', fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>Full name is required</p>
-              )}
+              <p style={{ color: 'var(--muted)', fontSize: '12px', marginTop: '4px' }}>Set by your Google account</p>
             </div>
 
             <div>
@@ -358,23 +354,7 @@ export default function SetNamePage() {
           )}
         </div>
 
-        {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && !fullName.trim() && !isViewOnly && (
-          <div style={{
-            borderLeft: '4px solid var(--border)',
-            borderRadius: '10px',
-            padding: '28px',
-            background: '#fafafa',
-            color: 'var(--muted)',
-            fontWeight: 600,
-            fontSize: '15px',
-          }}>
-            {role === 'TEACHER'
-              ? 'Set your full name and room number above to configure your schedule.'
-              : 'Set your full name above to configure your schedule.'}
-          </div>
-        )}
-
-        {role === 'TEACHER' && fullName.trim() && !defaultRoom.trim() && !isViewOnly && (
+        {role === 'TEACHER' && !defaultRoom.trim() && !isViewOnly && (
           <div style={{
             borderLeft: '4px solid var(--border)',
             borderRadius: '10px',
@@ -388,7 +368,7 @@ export default function SetNamePage() {
           </div>
         )}
 
-        {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && fullName.trim() && (role !== 'TEACHER' || defaultRoom.trim()) && (
+        {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && (role !== 'TEACHER' || defaultRoom.trim()) && (
           <div
             style={{
               borderLeft: '4px solid var(--primary)',
