@@ -4,7 +4,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
 import { resolveRole, type RoleValue } from "@/src/config/roles";
-import { PERIODS, type PeriodValue } from "@/src/config/schedule";
+import { DAYS, PERIODS, type PeriodValue } from "@/src/config/schedule";
 
 type FreePeriodInput = {
     day: number;

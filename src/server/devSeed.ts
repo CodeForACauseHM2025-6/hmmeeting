@@ -1,12 +1,20 @@
 import { prisma } from "@/src/server/db";
 import { DEV_USERS, type DevUser } from "@/src/config/devUsers";
+import { DAYS } from "@/src/config/schedule";
 import type { Period } from "@prisma/client";
 
 type ScheduleEntry = { day: number; period: Period };
 
-function uniqueSchedule(entries: ScheduleEntry[]) {
+function withBreakDefaults(entries: ScheduleEntry[]): ScheduleEntry[] {
+  const result = [...entries];
+  // Add BREAK as free for all days if not already present
+  for (const day of DAYS) {
+    if (!result.some((e) => e.day === day && e.period === "BREAK")) {
+      result.push({ day, period: "BREAK" });
+    }
+  }
   return Array.from(
-    new Map(entries.map((entry) => [`${entry.day}-${entry.period}`, entry])).values()
+    new Map(result.map((entry) => [`${entry.day}-${entry.period}`, entry])).values()
   );
 }
 
@@ -17,7 +25,7 @@ async function seedTeacher(user: DevUser, userId: string) {
     update: {},
   });
 
-  const schedule = uniqueSchedule(user.schedule ?? []);
+  const schedule = withBreakDefaults(user.schedule ?? []);
 
   await prisma.availability.deleteMany({
     where: { teacherId: teacher.id },
@@ -35,7 +43,7 @@ async function seedTeacher(user: DevUser, userId: string) {
 }
 
 async function seedStudent(user: DevUser, userId: string) {
-  const schedule = uniqueSchedule(user.schedule ?? []);
+  const schedule = withBreakDefaults(user.schedule ?? []);
 
   await prisma.studentAvailability.deleteMany({
     where: { userId },
