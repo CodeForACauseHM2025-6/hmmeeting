@@ -447,9 +447,9 @@ export default function SetNamePage() {
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '8px 12px', fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Period</th>
+                    <th style={{ textAlign: 'left', padding: '4px 8px', fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Period</th>
                     {DAYS.map((day) => (
-                      <th key={day} style={{ padding: '8px 12px', color: PRIMARY, fontWeight: 700, fontSize: '14px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      <th key={day} style={{ padding: '4px 8px', color: PRIMARY, fontWeight: 700, fontSize: '12px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         Day {day}
                       </th>
                     ))}
@@ -458,7 +458,7 @@ export default function SetNamePage() {
                 <tbody>
                   {PERIODS.map((period) => (
                     <tr key={period}>
-                      <td style={{ padding: '8px 12px', fontWeight: 600 }}>{period === 'BREAK' ? 'Break' : period}</td>
+                      <td style={{ padding: '4px 8px', fontWeight: 600, fontSize: '13px' }}>{period === 'BREAK' ? 'Break' : period}</td>
                       {DAYS.map((day) => {
                         const key = `${day}-${period}`;
 
@@ -477,16 +477,17 @@ export default function SetNamePage() {
                             label = 'OH';
                           }
                           return (
-                            <td key={key} style={{ padding: '8px 12px' }}>
+                            <td key={key} style={{ padding: '3px 4px' }}>
                               <button
                                 type="button"
                                 onClick={() => cycleSlot(day, period)}
                                 disabled={isViewOnly}
                                 style={{
                                   width: '100%',
-                                  padding: '12px 0',
-                                  borderRadius: '8px',
+                                  padding: '6px 0',
+                                  borderRadius: '6px',
                                   border: '2px solid var(--primary)',
+                                  fontSize: '12px',
                                   backgroundColor: bg,
                                   color,
                                   fontWeight: 700,

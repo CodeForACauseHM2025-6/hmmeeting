@@ -157,7 +157,7 @@ export default function TeacherAvailabilityPage() {
   }, [teacherId, router]);
 
   if (loading) {
-    return <div style={{ padding: "40px 48px", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "18px", color: "var(--muted)" }}>Loading availability...</div>;
+    return <div style={{ padding: "20px 32px", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "18px", color: "var(--muted)" }}>Loading availability...</div>;
   }
 
   const hasOfficeHours = officeHoursSet.size > 0;
@@ -211,7 +211,7 @@ export default function TeacherAvailabilityPage() {
   };
 
   return (
-    <div style={{ padding: "40px 48px", maxWidth: "900px", margin: "0 auto" }}>
+    <div style={{ padding: "20px 32px", maxWidth: "900px", margin: "0 auto" }}>
       <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "34px", fontWeight: 700, color: "var(--primary)", marginBottom: "8px" }}>
         {teacherName}&apos;s Availability
       </h1>
@@ -264,9 +264,9 @@ export default function TeacherAvailabilityPage() {
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "14px 12px", background: "var(--primary)", color: "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>Period</th>
+              <th style={{ textAlign: "left", padding: "8px 8px", background: "var(--primary)", color: "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>Period</th>
               {orderedDays.map((day) => (
-                <th key={day} style={{ padding: "14px 12px", background: day === todayCycleDay ? "var(--primary-soft)" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>
+                <th key={day} style={{ padding: "8px 8px", background: day === todayCycleDay ? "var(--primary-soft)" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>
                   <div>
                     Day {day}
                     {dayDates[day] && (
@@ -283,7 +283,7 @@ export default function TeacherAvailabilityPage() {
           <tbody>
             {PERIODS.map((period) => (
               <tr key={period}>
-                <td style={{ fontWeight: 700, fontSize: "15px", padding: "12px 14px", color: "var(--primary)", borderBottom: "1px solid #ede4e6", background: "#fff" }}>{period === "BREAK" ? "Break" : period}</td>
+                <td style={{ fontWeight: 700, fontSize: "15px", padding: "6px 8px", color: "var(--primary)", borderBottom: "1px solid #ede4e6", background: "#fff" }}>{period === "BREAK" ? "Break" : period}</td>
                 {orderedDays.map((day) => {
                   const key = `${day}-${period}`;
                   const teacherFree = teacherFreeSet.has(key);
@@ -300,14 +300,15 @@ export default function TeacherAvailabilityPage() {
                   const displayLabel = isOH ? "OH" : period === "BREAK" ? "Break" : period;
 
                   return (
-                    <td key={key} style={{ padding: "8px 10px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "#fff", borderBottom: "1px solid #ede4e6" }}>
+                    <td key={key} style={{ padding: "3px 4px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "#fff", borderBottom: "1px solid #ede4e6" }}>
                       <button
                         type="button"
                         onClick={() => handleSlotClick(day, period)}
                         style={{
                           width: "100%",
-                          padding: "12px 0",
-                          borderRadius: "8px",
+                          padding: "6px 0",
+                          borderRadius: "6px",
+                          fontSize: "12px",
                           border: cellBorder,
                           backgroundColor,
                           color: backgroundColor === "#f5f2ed" ? "var(--muted)" : "#fff",
@@ -400,7 +401,7 @@ export default function TeacherAvailabilityPage() {
                   rows={3}
                   style={{
                     width: "100%",
-                    padding: "12px 14px",
+                    padding: "6px 8px",
                     borderRadius: "8px",
                     border: "2px solid var(--border)",
                     fontSize: "15px",
@@ -423,7 +424,7 @@ export default function TeacherAvailabilityPage() {
                   rows={2}
                   style={{
                     width: "100%",
-                    padding: "12px 14px",
+                    padding: "6px 8px",
                     borderRadius: "8px",
                     border: "2px solid var(--border)",
                     fontSize: "15px",
