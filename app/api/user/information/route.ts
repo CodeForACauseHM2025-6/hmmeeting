@@ -6,6 +6,13 @@ import { prisma } from "@/src/server/db";
 import { resolveRole, type RoleValue } from "@/src/config/roles";
 import { DAYS, PERIODS, type PeriodValue } from "@/src/config/schedule";
 
+function nameFromEmail(email: string): string {
+    const local = email.split("@")[0] ?? "";
+    return local
+        .replace(/[._]/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 type FreePeriodInput = {
     day: number;
     period: PeriodValue;
@@ -64,14 +71,10 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => null);
-    const fullName = body?.fullName?.trim();
+    const fullName = (body?.fullName?.trim()) || nameFromEmail(session.user.email);
     const freePeriods = Array.isArray(body?.freePeriods) ? (body?.freePeriods as FreePeriodInput[]) : [];
     const room = typeof body?.room === "string" ? body.room.trim() : undefined;
     const resolvedRole: RoleValue = resolveRole(session.user.email);
-
-    if (!fullName) {
-        return new Response("Invalid payload", { status: 400 });
-    }
 
     const role: RoleValue = resolvedRole;
 

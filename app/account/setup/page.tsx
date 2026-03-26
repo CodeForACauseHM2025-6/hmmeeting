@@ -14,6 +14,14 @@ type FreePeriod = {
 
 const PRIMARY = 'var(--primary)';
 
+function nameFromEmail(email: string): string {
+  const local = email.split('@')[0] ?? '';
+  // Replace underscores/dots with spaces, capitalize each word
+  return local
+    .replace(/[._]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 type SlotState = 'FREE' | 'OFFICE_HOURS';
 
 export default function SetNamePage() {
@@ -60,9 +68,9 @@ export default function SetNamePage() {
         return;
       }
       const data = await response.json();
-      // Use OAuth name (from Google) as the authoritative name
+      // Use OAuth name, fall back to DB name, then derive from email
       const oauthName = session?.user?.name ?? '';
-      const resolvedName = oauthName || data?.fullName || '';
+      const resolvedName = oauthName || data?.fullName || nameFromEmail(email);
       const resolvedRole = data?.role ?? 'STUDENT';
       setFullName(resolvedName);
       setRole(resolvedRole);

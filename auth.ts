@@ -51,6 +51,20 @@ export const {
       // Only allow horacemann.org emails
       return user?.email?.endsWith("@horacemann.org") || false;
     },
+    async jwt({ token, user }) {
+      // If Google didn't provide a name, derive from email
+      if (user?.email && !user.name) {
+        const local = user.email.split("@")[0] ?? "";
+        token.name = local.replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (token.name && session.user) {
+        session.user.name = token.name as string;
+      }
+      return session;
+    },
   },
   // redirect to login no matter what 
   pages: {
