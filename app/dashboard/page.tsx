@@ -234,9 +234,6 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                 {getGreeting()}, {firstName}
             </h1>
             <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
-            <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>
-                This is your dashboard.
-            </p>
 
             <div
                 style={{
