@@ -8,7 +8,7 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const resolvedRole = resolveRole(session.user.email);
+  const resolvedRole = await resolveRole(session.user.email);
   if (resolvedRole !== "ADMIN") {
     return new Response("Forbidden", { status: 403 });
   }
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     return new Response("User not found", { status: 404 });
   }
 
-  const userRole = resolveRole(user.email);
+  const userRole = await resolveRole(user.email);
 
   // Build schedule: array of { day, period, type }
   let schedule: { day: number; period: string; type: string }[] = [];

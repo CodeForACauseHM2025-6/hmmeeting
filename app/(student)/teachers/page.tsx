@@ -19,7 +19,7 @@ export default async function TeachersPage() {
     redirect("/account/setup");
   }
 
-  const resolvedRole = resolveRole(session.user.email);
+  const resolvedRole = await resolveRole(session.user.email);
   if (resolvedRole !== "STUDENT" && resolvedRole !== "ADMIN") {
     redirect("/dashboard");
   }

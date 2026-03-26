@@ -1,14 +1,5 @@
 import { DEV_USERS } from "./devUsers";
-
-export const ADMIN_EMAILS: string[] = [
-    //"principal@horacemann.org",
-    //"brighten_sun@horacemann.org",
-];
-
-export const TEACHER_EMAILS: string[] = [
-    //"teacher@horacemann.org",
-    //"brighten_sun@horacemann.org",
-];
+import { prisma } from "@/src/server/db";
 
 export type RoleValue = "STUDENT" | "TEACHER" | "ADMIN";
 
@@ -17,34 +8,37 @@ const DEV_ROLE_MAP =
     ? new Map(DEV_USERS.map((user) => [user.email.toLowerCase(), user.role as RoleValue]))
     : null;
 
-export function getRoleLists() {
-  return {
-    adminEmails: [...ADMIN_EMAILS],
-    teacherEmails: [...TEACHER_EMAILS],
-  };
-}
-
-export function setRoleLists(params: { adminEmails: string[]; teacherEmails: string[] }) {
-  ADMIN_EMAILS.length = 0;
-  ADMIN_EMAILS.push(...params.adminEmails);
-
-  TEACHER_EMAILS.length = 0;
-  TEACHER_EMAILS.push(...params.teacherEmails);
-}
-
-export function resolveRole(email: string): RoleValue {
+/**
+ * Resolve a user's role.
+ *
+ * Priority:
+ * 1. Dev credentials (dev mode only)
+ * 2. INITIAL_ADMIN_EMAIL env var (bootstrap the first admin)
+ * 3. Database User.role column (source of truth)
+ * 4. Default: STUDENT
+ */
+export async function resolveRole(email: string): Promise<RoleValue> {
   const normalized = email.trim().toLowerCase();
 
+  // Dev mode: use hardcoded dev user roles
   if (DEV_ROLE_MAP?.has(normalized)) {
     return DEV_ROLE_MAP.get(normalized)!;
   }
 
-  if (ADMIN_EMAILS.map((value) => value.toLowerCase()).includes(normalized)) {
+  // Bootstrap: env var for the initial admin (before any DB records exist)
+  const initialAdmin = process.env.INITIAL_ADMIN_EMAIL?.trim().toLowerCase();
+  if (initialAdmin && normalized === initialAdmin) {
     return "ADMIN";
   }
 
-  if (TEACHER_EMAILS.map((value) => value.toLowerCase()).includes(normalized)) {
-    return "TEACHER";
+  // Database is the source of truth
+  const user = await prisma.user.findUnique({
+    where: { email: normalized },
+    select: { role: true },
+  });
+
+  if (user?.role) {
+    return user.role as RoleValue;
   }
 
   return "STUDENT";

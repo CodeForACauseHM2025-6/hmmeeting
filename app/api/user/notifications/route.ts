@@ -86,7 +86,7 @@ export async function GET() {
     return new Response("Not found", { status: 404 });
   }
 
-  const role = resolveRole(session.user.email);
+  const role = await resolveRole(session.user.email);
   const scheduleSettings = await getScheduleSnapshot();
 
   if (role === "ADMIN") {

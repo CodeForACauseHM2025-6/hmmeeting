@@ -3,7 +3,8 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
-import { resolveRole, type RoleValue } from "@/src/config/roles";
+import { resolveRole } from "@/src/config/roles";
+import type { RoleValue } from "@/src/config/roles";
 import { DAYS, PERIODS, type PeriodValue } from "@/src/config/schedule";
 
 function nameFromEmail(email: string): string {
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const includeSchedule = url.searchParams.get("includeSchedule") === "true";
 
-    const resolvedRole = resolveRole(session.user.email);
+    const resolvedRole = await resolveRole(session.user.email);
 
     let user = await prisma.user.findUnique({
         where: { email: session.user.email },
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
     const fullName = (body?.fullName?.trim()) || nameFromEmail(session.user.email);
     const freePeriods = Array.isArray(body?.freePeriods) ? (body?.freePeriods as FreePeriodInput[]) : [];
     const room = typeof body?.room === "string" ? body.room.trim() : undefined;
-    const resolvedRole: RoleValue = resolveRole(session.user.email);
+    const resolvedRole: RoleValue = await resolveRole(session.user.email);
 
     const role: RoleValue = resolvedRole;
 

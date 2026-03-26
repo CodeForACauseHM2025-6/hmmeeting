@@ -3,9 +3,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
 import { Role } from "@prisma/client";
-import { getRoleLists, resolveRole } from "@/src/config/roles";
+import { resolveRole } from "@/src/config/roles";
 import { getEffectiveWeek } from "@/src/config/schedule";
-import { persistRoleLists } from "@/src/server/rolesFile";
 import { ensureDevUsers } from "@/src/server/devSeed";
 import UserSearchTable from "./user-search-table";
 
@@ -18,7 +17,7 @@ async function requireAdmin() {
     redirect("/login");
   }
 
-  const resolvedRole = resolveRole(session.user.email);
+  const resolvedRole = await resolveRole(session.user.email);
   if (resolvedRole !== "ADMIN") {
     redirect("/dashboard");
   }
@@ -46,23 +45,6 @@ async function upsertUserRole(formData: FormData) {
   if (!email || !fullNameInput || !ROLE_OPTIONS.includes(role as (typeof ROLE_OPTIONS)[number])) {
     return;
   }
-
-  const { adminEmails, teacherEmails } = getRoleLists();
-  let nextAdmin = [...adminEmails];
-  let nextTeacher = [...teacherEmails];
-
-  if (role === "ADMIN") {
-    nextAdmin = Array.from(new Set([...nextAdmin, email]));
-    nextTeacher = nextTeacher.filter((entry) => entry !== email);
-  } else if (role === "TEACHER") {
-    nextTeacher = Array.from(new Set([...nextTeacher, email]));
-    nextAdmin = nextAdmin.filter((entry) => entry !== email);
-  } else {
-    nextAdmin = nextAdmin.filter((entry) => entry !== email);
-    nextTeacher = nextTeacher.filter((entry) => entry !== email);
-  }
-
-  persistRoleLists({ adminEmails: nextAdmin, teacherEmails: nextTeacher });
 
   const existing = await prisma.user.findUnique({ where: { email } });
   const fullName = fullNameInput || existing?.fullName || email;
@@ -98,13 +80,6 @@ async function removeUser(formData: FormData) {
     include: { teacher: true },
   });
   if (!user) return;
-
-  // Remove from role lists
-  const { adminEmails, teacherEmails } = getRoleLists();
-  persistRoleLists({
-    adminEmails: adminEmails.filter((e) => e !== email),
-    teacherEmails: teacherEmails.filter((e) => e !== email),
-  });
 
   // Delete related records
   if (user.teacher) {
@@ -183,7 +158,7 @@ export default async function AdminUsersPage() {
 
   const usersWithRoles = users.map((user) => ({
     ...user,
-    resolvedRole: resolveRole(user.email),
+    resolvedRole: user.role,
   }));
 
   return (

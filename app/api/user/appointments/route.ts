@@ -88,7 +88,7 @@ export async function GET() {
     return new Response("Not found", { status: 404 });
   }
 
-  const resolvedRole = resolveRole(session.user.email);
+  const resolvedRole = await resolveRole(session.user.email);
   const scheduleSettings = await getScheduleSnapshot();
 
   if (resolvedRole === "TEACHER") {
@@ -341,7 +341,7 @@ export async function POST(request: Request) {
     return new Response("Not found", { status: 404 });
   }
 
-  const resolvedRole = resolveRole(session.user.email);
+  const resolvedRole = await resolveRole(session.user.email);
   if (resolvedRole !== "STUDENT" && resolvedRole !== "ADMIN") {
     return new Response("Only students and admins can book meetings", { status: 403 });
   }
@@ -494,7 +494,7 @@ export async function PATCH(request: Request) {
     return new Response("Not found", { status: 404 });
   }
 
-  const resolvedRole = resolveRole(session.user.email);
+  const resolvedRole = await resolveRole(session.user.email);
   const resolveTeacherId = async () => {
     let teacherId = user.teacher?.id;
     if (!teacherId) {

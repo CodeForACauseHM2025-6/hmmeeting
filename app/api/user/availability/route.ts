@@ -23,7 +23,7 @@ async function getTeacherForSession(email: string) {
     return { error: new Response("Not found", { status: 404 }) };
   }
 
-  const resolvedRole = resolveRole(email);
+  const resolvedRole = await resolveRole(email);
   if (resolvedRole !== "TEACHER") {
     return { error: new Response("Forbidden", { status: 403 }) };
   }

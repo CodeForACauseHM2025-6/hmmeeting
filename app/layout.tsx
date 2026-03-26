@@ -37,7 +37,7 @@ export default async function RootLayout({
   let role: "STUDENT" | "TEACHER" | "ADMIN" | "GUEST" = "GUEST";
 
   if (session?.user?.email) {
-    role = resolveRole(session.user.email);
+    role = await resolveRole(session.user.email);
   }
 
   return (
