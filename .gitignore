@@ -37,6 +37,7 @@ yarn-error.log*
 # production data (SQLite DB + backups on server)
 /data/
 /backups/
+prisma/dev.db
 
 # vercel
 .vercel
@@ -44,3 +45,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+.claude
+.claude-flow
+.swarm
+.mcp.json
+CLAUDE.md
+
+EXPLANATION.md
+PRODUCTION.md
+.cursor/debug.log
