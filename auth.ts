@@ -4,6 +4,8 @@ import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
 import { DEV_USERS } from "@/src/config/devUsers";
 import { ensureDevUsers } from "@/src/server/devSeed";
+import { prisma } from "@/src/server/db";
+import { resolveRole } from "@/src/config/roles";
 
 export const {
   handlers: { GET, POST }, // GET and POST handlers for the auth routes
@@ -49,7 +51,31 @@ export const {
         return process.env.NODE_ENV !== "production";
       }
       // Only allow horacemann.org emails
-      return user?.email?.endsWith("@horacemann.org") || false;
+      if (!user?.email?.endsWith("@horacemann.org")) return false;
+
+      // Auto-create/update DB user with the Google profile name
+      const googleName = user.name || "";
+      const fullName =
+        googleName ||
+        (() => {
+          const local = user.email!.split("@")[0] ?? "";
+          return local
+            .replace(/[._]/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase());
+        })();
+
+      try {
+        const role = await resolveRole(user.email!);
+        await prisma.user.upsert({
+          where: { email: user.email! },
+          create: { email: user.email!, fullName, role },
+          update: { fullName, role },
+        });
+      } catch (e) {
+        console.error("Failed to upsert user on sign-in:", e);
+      }
+
+      return true;
     },
     async jwt({ token, user }) {
       // If Google didn't provide a name, derive from email
