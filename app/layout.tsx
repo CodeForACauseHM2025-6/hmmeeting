@@ -40,6 +40,8 @@ export default async function RootLayout({
     role = await resolveRole(session.user.email);
   }
 
+  const isAuthenticated = Boolean(session?.user?.email);
+
   return (
     <html lang="en">
       <body
@@ -50,13 +52,20 @@ export default async function RootLayout({
             style={{
               display: "flex",
               alignItems: "stretch",
-              minHeight: "100vh",
+              minHeight: "100dvh",
               background: "var(--background)",
             }}
           >
-            <Sidebar role={role} isAuthenticated={Boolean(session?.user?.email)} />
-            <main style={{ flex: 1, minHeight: "100vh", background: "var(--surface)", padding: "32px 40px" }}>
-              <NotificationsBell />
+            {isAuthenticated && (
+              <Sidebar role={role} isAuthenticated={isAuthenticated} />
+            )}
+            <main style={{
+              flex: 1,
+              minHeight: "100dvh",
+              background: isAuthenticated ? "var(--surface)" : "var(--background)",
+              overflowX: "hidden",
+            }}>
+              {isAuthenticated && <NotificationsBell />}
               {children}
             </main>
           </div>

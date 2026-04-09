@@ -57,7 +57,6 @@ export default function UserSearchTable({
     );
   }, [searchQuery, users]);
 
-  // Close menu on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -126,198 +125,217 @@ export default function UserSearchTable({
           style={{
             width: "100%",
             maxWidth: "400px",
-            padding: '12px 14px',
-            borderRadius: '8px',
-            border: '2px solid var(--border)',
-            fontSize: '15px',
+            padding: "10px 14px",
+            borderRadius: "8px",
+            border: "1px solid var(--border)",
+            fontSize: "14px",
           }}
         />
       </div>
 
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em' }}>
-              Name
-            </th>
-            <th style={{ textAlign: 'left', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em' }}>
-              Email
-            </th>
-            <th style={{ textAlign: 'left', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em' }}>
-              Role
-            </th>
-            <th style={{ textAlign: 'center', padding: '14px', background: 'var(--primary)', color: '#fff', fontWeight: 700, textTransform: 'uppercase', fontSize: '12px', letterSpacing: '0.06em', width: '60px' }}>
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {filteredUsers.length === 0 ? (
+      <div style={{
+        borderRadius: "12px",
+        overflow: "hidden",
+        border: "1px solid var(--border-light)",
+        boxShadow: "0 1px 3px rgba(91,13,31,0.04)",
+      }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
             <tr>
-              <td
-                colSpan={4}
-                style={{ padding: "16px 8px", textAlign: "center", color: "#666" }}
-              >
-                No users found matching &quot;{searchQuery}&quot;
-              </td>
+              <th style={{ textAlign: "left", padding: "12px 16px", background: "var(--primary)", color: "#fff", fontWeight: 600, fontSize: "12px", letterSpacing: "0.04em" }}>
+                Name
+              </th>
+              <th style={{ textAlign: "left", padding: "12px 16px", background: "var(--primary)", color: "#fff", fontWeight: 600, fontSize: "12px", letterSpacing: "0.04em" }}>
+                Email
+              </th>
+              <th style={{ textAlign: "left", padding: "12px 16px", background: "var(--primary)", color: "#fff", fontWeight: 600, fontSize: "12px", letterSpacing: "0.04em" }}>
+                Role
+              </th>
+              <th style={{ textAlign: "center", padding: "12px 16px", background: "var(--primary)", color: "#fff", fontWeight: 600, fontSize: "12px", letterSpacing: "0.04em", width: "60px" }}>
+                Actions
+              </th>
             </tr>
-          ) : (
-            filteredUsers.map((user) => (
-              <tr key={user.id}>
-                <td style={{ padding: '14px', borderBottom: '2px solid #f0ece6' }}>
-                  {user.fullName}
-                </td>
-                <td style={{ padding: '14px', borderBottom: '2px solid #f0ece6' }}>
-                  {user.email}
-                </td>
-                <td style={{ padding: '14px', borderBottom: '2px solid #f0ece6' }}>
-                  {user.resolvedRole}
-                </td>
+          </thead>
+          <tbody>
+            {filteredUsers.length === 0 ? (
+              <tr>
                 <td
-                  style={{
-                    padding: '14px',
-                    borderBottom: '2px solid #f0ece6',
-                    textAlign: 'center',
-                    position: 'relative',
-                  }}
+                  colSpan={4}
+                  style={{ padding: "24px 16px", textAlign: "center", color: "var(--muted)", fontSize: "14px" }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOpenMenuId(openMenuId === user.id ? null : user.id);
-                      setRoleSubMenuId(null);
-                    }}
-                    style={{
-                      background: 'none',
-                      border: '2px solid var(--border)',
-                      borderRadius: '6px',
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      fontSize: '16px',
-                    }}
-                    title="Actions"
-                  >
-                    ⚙
-                  </button>
-
-                  {openMenuId === user.id && (
-                    <div
-                      ref={menuRef}
-                      style={{
-                        position: 'absolute',
-                        right: 0,
-                        top: '100%',
-                        background: '#fff',
-                        border: '2px solid var(--primary)',
-                        borderRadius: '10px',
-                        boxShadow: '0 8px 24px rgba(91,13,31,0.12)',
-                        zIndex: 100,
-                        minWidth: '180px',
-                        overflow: 'hidden',
-                      }}
-                    >
-                      {/* Change Role */}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setRoleSubMenuId(roleSubMenuId === user.id ? null : user.id)
-                        }
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '12px 16px',
-                          border: 'none',
-                          background: roleSubMenuId === user.id ? '#f5f5f5' : '#fff',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        Change Role ▸
-                      </button>
-
-                      {roleSubMenuId === user.id && (
-                        <div style={{ background: "#fafafa", borderTop: "1px solid #eee" }}>
-                          {roleOptions.map((role) => (
-                            <button
-                              key={role}
-                              type="button"
-                              onClick={() => handleRoleChange(user, role)}
-                              style={{
-                                display: "block",
-                                width: "100%",
-                                textAlign: "left",
-                                padding: "8px 14px 8px 28px",
-                                border: "none",
-                                background:
-                                  user.resolvedRole === role ? "#e8e0e3" : "transparent",
-                                cursor: "pointer",
-                                fontSize: "13px",
-                                fontWeight: user.resolvedRole === role ? 600 : 400,
-                              }}
-                            >
-                              {role}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* View Schedule */}
-                      <button
-                        type="button"
-                        onClick={() => handleViewSchedule(user)}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '12px 16px',
-                          border: 'none',
-                          borderTop: '1px solid #eee',
-                          background: '#fff',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: 600,
-                        }}
-                      >
-                        View Schedule
-                      </button>
-
-                      {/* Remove User */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOpenMenuId(null);
-                          setConfirmRemove(user);
-                        }}
-                        style={{
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '12px 16px',
-                          border: 'none',
-                          borderTop: '1px solid #eee',
-                          background: '#fff',
-                          cursor: 'pointer',
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          color: '#d32f2f',
-                        }}
-                      >
-                        Remove User
-                      </button>
-                    </div>
-                  )}
+                  No users found matching &quot;{searchQuery}&quot;
                 </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : (
+              filteredUsers.map((user) => (
+                <tr key={user.id}>
+                  <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-light)", fontSize: "14px", fontWeight: 500 }}>
+                    {user.fullName}
+                  </td>
+                  <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-light)", fontSize: "14px", color: "var(--muted)" }}>
+                    {user.email}
+                  </td>
+                  <td style={{ padding: "12px 16px", borderBottom: "1px solid var(--border-light)", fontSize: "14px" }}>
+                    <span style={{
+                      display: "inline-block",
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      fontSize: "11px",
+                      fontWeight: 600,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                      background: "var(--primary-soft)",
+                      color: "var(--primary)",
+                    }}>
+                      {user.resolvedRole}
+                    </span>
+                  </td>
+                  <td
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: "1px solid var(--border-light)",
+                      textAlign: "center",
+                      position: "relative",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      className="btn-ghost"
+                      onClick={() => {
+                        setOpenMenuId(openMenuId === user.id ? null : user.id);
+                        setRoleSubMenuId(null);
+                      }}
+                      style={{
+                        background: "none",
+                        border: "1px solid var(--border)",
+                        borderRadius: "6px",
+                        padding: "6px 10px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                      }}
+                      title="Actions"
+                    >
+                      &#x2699;
+                    </button>
+
+                    {openMenuId === user.id && (
+                      <div
+                        ref={menuRef}
+                        className="dropdown-enter"
+                        style={{
+                          position: "absolute",
+                          right: 0,
+                          top: "100%",
+                          background: "var(--surface)",
+                          border: "1px solid var(--border)",
+                          borderRadius: "10px",
+                          boxShadow: "0 8px 24px rgba(91,13,31,0.1)",
+                          zIndex: 100,
+                          minWidth: "180px",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRoleSubMenuId(roleSubMenuId === user.id ? null : user.id)
+                          }
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "10px 16px",
+                            border: "none",
+                            background: roleSubMenuId === user.id ? "var(--surface-warm)" : "var(--surface)",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          Change role &#x25B8;
+                        </button>
+
+                        {roleSubMenuId === user.id && (
+                          <div style={{ background: "var(--surface-warm)", borderTop: "1px solid var(--border-light)" }}>
+                            {roleOptions.map((role) => (
+                              <button
+                                key={role}
+                                type="button"
+                                onClick={() => handleRoleChange(user, role)}
+                                style={{
+                                  display: "block",
+                                  width: "100%",
+                                  textAlign: "left",
+                                  padding: "8px 14px 8px 28px",
+                                  border: "none",
+                                  background:
+                                    user.resolvedRole === role ? "var(--primary-soft)" : "transparent",
+                                  cursor: "pointer",
+                                  fontSize: "12px",
+                                  fontWeight: user.resolvedRole === role ? 600 : 400,
+                                }}
+                              >
+                                {role}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => handleViewSchedule(user)}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "10px 16px",
+                            border: "none",
+                            borderTop: "1px solid var(--border-light)",
+                            background: "var(--surface)",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                            fontWeight: 500,
+                          }}
+                        >
+                          View schedule
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOpenMenuId(null);
+                            setConfirmRemove(user);
+                          }}
+                          style={{
+                            display: "block",
+                            width: "100%",
+                            textAlign: "left",
+                            padding: "10px 16px",
+                            border: "none",
+                            borderTop: "1px solid var(--border-light)",
+                            background: "var(--surface)",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                            fontWeight: 500,
+                            color: "var(--danger)",
+                          }}
+                        >
+                          Remove user
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
       {/* Remove user confirmation modal */}
       {confirmRemove && (
         <div
+          className="modal-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -330,49 +348,53 @@ export default function UserSearchTable({
           onClick={() => setConfirmRemove(null)}
         >
           <div
+            className="modal-panel"
             style={{
-              background: '#fff',
-              borderRadius: '14px',
-              padding: '32px',
-              maxWidth: '400px',
-              width: '90%',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              background: "var(--surface)",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "400px",
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: '12px', color: '#d32f2f', fontFamily: 'var(--font-lora, Georgia, serif)' }}>Remove User</h3>
-            <p style={{ marginBottom: "20px" }}>
-              Are you sure you want to remove <strong>{confirmRemove.fullName}</strong> ({confirmRemove.email})?
+            <h3 style={{ marginBottom: "12px", color: "var(--danger)", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "20px" }}>Remove user</h3>
+            <p style={{ marginBottom: "20px", fontSize: "14px", color: "var(--muted)" }}>
+              Are you sure you want to remove <strong style={{ color: "var(--foreground)" }}>{confirmRemove.fullName}</strong> ({confirmRemove.email})?
               This will delete their account and all associated data.
             </p>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
               <button
                 type="button"
+                className="btn-outline"
                 onClick={() => setConfirmRemove(null)}
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #ccc',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  color: "var(--foreground)",
                 }}
               >
                 Cancel
               </button>
               <button
                 type="button"
+                className="btn-fill"
                 onClick={handleRemoveConfirm}
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: '#d32f2f',
-                  color: '#fff',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textTransform: 'uppercase',
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "var(--danger)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  cursor: "pointer",
                 }}
               >
                 Remove
@@ -385,6 +407,7 @@ export default function UserSearchTable({
       {/* View Schedule popup */}
       {scheduleUser && (
         <div
+          className="modal-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -397,67 +420,46 @@ export default function UserSearchTable({
           onClick={() => setScheduleUser(null)}
         >
           <div
+            className="modal-panel"
             style={{
-              background: '#fff',
-              borderRadius: '14px',
-              padding: '32px',
-              maxWidth: '700px',
-              width: '95%',
-              maxHeight: '85vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              background: "var(--surface)",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "700px",
+              width: "95%",
+              maxHeight: "85vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: '4px', color: 'var(--primary)', fontFamily: 'var(--font-lora, Georgia, serif)' }}>
-              {scheduleUser.fullName}&apos;s Schedule
+            <h3 style={{ marginBottom: "4px", color: "var(--primary)", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "20px" }}>
+              {scheduleUser.fullName}&apos;s schedule
             </h3>
-            <p style={{ color: "#666", fontSize: "13px", marginBottom: "16px" }}>
+            <p style={{ color: "var(--muted)", fontSize: "13px", marginBottom: "16px" }}>
               {scheduleUser.email} &middot; {scheduleUser.resolvedRole}
             </p>
 
             {scheduleLoading ? (
-              <p style={{ textAlign: "center", color: "#999", padding: "20px 0" }}>Loading...</p>
+              <div style={{ padding: "24px 0" }}>
+                <div className="skeleton" style={{ height: "200px", width: "100%" }} />
+              </div>
             ) : scheduleData ? (
               <>
                 {/* Color legend */}
                 <div style={{ display: "flex", gap: "16px", marginBottom: "12px", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <span
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        borderRadius: '3px',
-                        border: '2px solid #ccc',
-                        background: '#fff',
-                      }}
-                    />
-                    <span style={{ fontSize: "12px", color: "#555" }}>Busy</span>
+                    <span style={{ width: "16px", height: "16px", borderRadius: "3px", border: "1px solid var(--border)", background: "var(--surface)" }} />
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>Busy</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                    <span
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        borderRadius: '3px',
-                        border: '2px solid #5b0d1f',
-                        background: '#5b0d1f',
-                      }}
-                    />
-                    <span style={{ fontSize: "12px", color: "#555" }}>Free</span>
+                    <span style={{ width: "16px", height: "16px", borderRadius: "3px", background: "var(--primary)" }} />
+                    <span style={{ fontSize: "12px", color: "var(--muted)" }}>Free</span>
                   </div>
                   {scheduleData.role === "TEACHER" && (
                     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                      <span
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          borderRadius: '3px',
-                          border: '2px solid #6a1b9a',
-                          background: '#6a1b9a',
-                        }}
-                      />
-                      <span style={{ fontSize: "12px", color: "#555" }}>Office Hours</span>
+                      <span style={{ width: "16px", height: "16px", borderRadius: "3px", background: "var(--slot-oh)" }} />
+                      <span style={{ fontSize: "12px", color: "var(--muted)" }}>Office hours</span>
                     </div>
                   )}
                 </div>
@@ -466,18 +468,19 @@ export default function UserSearchTable({
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
                     <thead>
                       <tr>
-                        <th style={{ textAlign: "left", padding: "6px 8px", borderBottom: "1px solid #ddd" }}>
+                        <th style={{ textAlign: "left", padding: "8px 8px", borderBottom: "1px solid var(--border-light)", color: "var(--muted)", fontSize: "11px", fontWeight: 600, letterSpacing: "0.03em" }}>
                           Period
                         </th>
                         {DAYS.map((day) => (
                           <th
                             key={day}
                             style={{
-                              padding: "6px 4px",
+                              padding: "8px 4px",
                               textAlign: "center",
-                              borderBottom: "1px solid #ddd",
+                              borderBottom: "1px solid var(--border-light)",
                               color: "var(--primary)",
-                              fontSize: "12px",
+                              fontSize: "11px",
+                              fontWeight: 600,
                             }}
                           >
                             Day {day}
@@ -488,23 +491,23 @@ export default function UserSearchTable({
                     <tbody>
                       {PERIODS.map((period) => (
                         <tr key={period}>
-                          <td style={{ padding: "6px 8px", fontWeight: 600, borderBottom: "1px solid #f0f0f0" }}>
+                          <td style={{ padding: "6px 8px", fontWeight: 600, borderBottom: "1px solid var(--border-light)", fontSize: "12px" }}>
                             {period === "BREAK" ? "Break" : period}
                           </td>
                           {DAYS.map((day) => {
                             const slot = scheduleData.schedule.find(
                               (s) => s.day === day && s.period === period
                             );
-                            let bg = "#fff";
-                            let color = "#aaa";
+                            let bg = "var(--surface)";
+                            let color = "transparent";
                             let label = "";
                             if (slot) {
                               if (slot.type === "OFFICE_HOURS") {
-                                bg = "#6a1b9a";
+                                bg = "var(--slot-oh)";
                                 color = "#fff";
                                 label = "OH";
                               } else {
-                                bg = "#5b0d1f";
+                                bg = "var(--primary)";
                                 color = "#fff";
                                 label = "Free";
                               }
@@ -515,7 +518,7 @@ export default function UserSearchTable({
                                 style={{
                                   padding: "4px 2px",
                                   textAlign: "center",
-                                  borderBottom: "1px solid #f0f0f0",
+                                  borderBottom: "1px solid var(--border-light)",
                                 }}
                               >
                                 <div
@@ -523,11 +526,11 @@ export default function UserSearchTable({
                                     backgroundColor: bg,
                                     color,
                                     borderRadius: "4px",
-                                    padding: "6px 0",
-                                    fontSize: "11px",
+                                    padding: "5px 0",
+                                    fontSize: "10px",
                                     fontWeight: 600,
-                                    border: slot ? "none" : "1px solid #eee",
-                                    minWidth: "36px",
+                                    border: slot ? "none" : "1px solid var(--border-light)",
+                                    minWidth: "32px",
                                   }}
                                 >
                                   {label}
@@ -542,13 +545,13 @@ export default function UserSearchTable({
                 </div>
 
                 {scheduleData.schedule.length === 0 && (
-                  <p style={{ textAlign: "center", color: "#999", marginTop: "12px" }}>
+                  <p style={{ textAlign: "center", color: "var(--muted)", marginTop: "12px", fontSize: "14px" }}>
                     No availability set.
                   </p>
                 )}
               </>
             ) : (
-              <p style={{ textAlign: "center", color: "#d32f2f", padding: "20px 0" }}>
+              <p style={{ textAlign: "center", color: "var(--danger)", padding: "20px 0", fontSize: "14px" }}>
                 Failed to load schedule.
               </p>
             )}
@@ -556,15 +559,17 @@ export default function UserSearchTable({
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "16px" }}>
               <button
                 type="button"
+                className="btn-outline"
                 onClick={() => setScheduleUser(null)}
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #ccc',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  color: "var(--foreground)",
                 }}
               >
                 Close
@@ -575,40 +580,40 @@ export default function UserSearchTable({
       )}
 
       {/* Clear All Schedules section */}
-      <div
-        style={{
-          marginTop: "32px",
-          borderTop: "1px solid #eee",
-          paddingTop: "24px",
-        }}
-      >
-        <h3 style={{ fontSize: '16px', color: '#d32f2f', marginBottom: '8px', fontWeight: 700, textTransform: 'uppercase' }}>
-          Danger Zone
+      <div style={{
+        marginTop: "32px",
+        borderTop: "1px solid var(--border-light)",
+        paddingTop: "24px",
+      }}>
+        <h3 style={{ fontSize: "14px", color: "var(--danger)", marginBottom: "8px", fontWeight: 600 }}>
+          Danger zone
         </h3>
-        <p style={{ color: "#666", fontSize: "14px", marginBottom: "12px" }}>
+        <p style={{ color: "var(--muted)", fontSize: "13px", marginBottom: "12px" }}>
           Clear all schedules will set every period to busy and cancel all active meetings.
         </p>
         <button
           type="button"
+          className="btn-danger-outline"
           onClick={() => setClearStep(1)}
           style={{
-            padding: '10px 20px',
-            borderRadius: '6px',
-            border: '2px solid var(--danger)',
-            background: '#fff',
-            color: 'var(--danger)',
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            cursor: 'pointer',
+            padding: "8px 16px",
+            borderRadius: "6px",
+            border: "1px solid var(--danger)",
+            background: "var(--surface)",
+            color: "var(--danger)",
+            fontWeight: 600,
+            fontSize: "13px",
+            cursor: "pointer",
           }}
         >
-          Clear All Schedules
+          Clear all schedules
         </button>
       </div>
 
       {/* Clear step 1: first confirmation */}
       {clearStep === 1 && (
         <div
+          className="modal-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -621,48 +626,52 @@ export default function UserSearchTable({
           onClick={() => { setClearStep(0); setClearInput(""); }}
         >
           <div
+            className="modal-panel"
             style={{
-              background: '#fff',
-              borderRadius: '14px',
-              padding: '32px',
-              maxWidth: '420px',
-              width: '90%',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              background: "var(--surface)",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "420px",
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: '12px', color: '#d32f2f', fontFamily: 'var(--font-lora, Georgia, serif)' }}>Are you sure?</h3>
-            <p style={{ marginBottom: "20px" }}>
+            <h3 style={{ marginBottom: "12px", color: "var(--danger)", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "20px" }}>Are you sure?</h3>
+            <p style={{ marginBottom: "20px", fontSize: "14px", color: "var(--muted)" }}>
               This will set all periods to busy and cancel all active meetings. This action cannot be undone.
             </p>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
               <button
                 type="button"
+                className="btn-outline"
                 onClick={() => { setClearStep(0); setClearInput(""); }}
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #ccc',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  color: "var(--foreground)",
                 }}
               >
                 Cancel
               </button>
               <button
                 type="button"
+                className="btn-fill"
                 onClick={() => setClearStep(2)}
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: '#d32f2f',
-                  color: '#fff',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textTransform: 'uppercase',
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "var(--danger)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  cursor: "pointer",
                 }}
               >
                 Continue
@@ -675,6 +684,7 @@ export default function UserSearchTable({
       {/* Clear step 2: text confirmation */}
       {clearStep === 2 && (
         <div
+          className="modal-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -687,18 +697,21 @@ export default function UserSearchTable({
           onClick={() => { setClearStep(0); setClearInput(""); }}
         >
           <div
+            className="modal-panel"
             style={{
-              background: '#fff',
-              borderRadius: '14px',
-              padding: '32px',
-              maxWidth: '420px',
-              width: '90%',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
+              background: "var(--surface)",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "420px",
+              width: "90%",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ marginBottom: '12px', color: '#d32f2f', fontFamily: 'var(--font-lora, Georgia, serif)' }}>Type &quot;clear&quot; to confirm</h3>
-            <p style={{ marginBottom: "12px", fontSize: "14px", color: "#666" }}>
+            <h3 style={{ marginBottom: "12px", color: "var(--danger)", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "20px" }}>
+              Type &quot;clear&quot; to confirm
+            </h3>
+            <p style={{ marginBottom: "12px", fontSize: "13px", color: "var(--muted)" }}>
               This will permanently clear all schedules and cancel all meetings.
             </p>
             <input
@@ -707,49 +720,52 @@ export default function UserSearchTable({
               onChange={(e) => setClearInput(e.target.value)}
               placeholder='Type "clear"'
               style={{
-                width: '100%',
-                padding: '12px 14px',
-                borderRadius: '8px',
-                border: '2px solid var(--border)',
-                marginBottom: '16px',
-                fontSize: '15px',
+                width: "100%",
+                padding: "10px 14px",
+                borderRadius: "8px",
+                border: "1px solid var(--border)",
+                marginBottom: "16px",
+                fontSize: "14px",
               }}
               autoFocus
             />
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
               <button
                 type="button"
+                className="btn-outline"
                 onClick={() => { setClearStep(0); setClearInput(""); }}
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  border: '1px solid #ccc',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  textTransform: 'uppercase',
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  fontSize: "14px",
+                  color: "var(--foreground)",
                 }}
               >
                 Cancel
               </button>
               <button
                 type="button"
+                className="btn-fill"
                 disabled={clearInput.trim().toLowerCase() !== "clear" || clearing}
                 onClick={handleClearAll}
                 style={{
-                  padding: '12px 20px',
-                  borderRadius: '8px',
-                  border: 'none',
+                  padding: "10px 18px",
+                  borderRadius: "8px",
+                  border: "none",
                   background:
-                    clearInput.trim().toLowerCase() === "clear" ? "#d32f2f" : "#ccc",
-                  color: '#fff',
-                  fontWeight: 700,
+                    clearInput.trim().toLowerCase() === "clear" ? "var(--danger)" : "var(--border)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "14px",
                   cursor:
                     clearInput.trim().toLowerCase() === "clear" ? "pointer" : "not-allowed",
-                  textTransform: 'uppercase',
                 }}
               >
-                {clearing ? "Clearing..." : "Clear All Schedules"}
+                {clearing ? "Clearing..." : "Clear all schedules"}
               </button>
             </div>
           </div>

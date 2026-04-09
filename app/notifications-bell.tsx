@@ -18,7 +18,6 @@ export default function NotificationsBell() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(true);
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const pathname = usePathname();
 
@@ -51,28 +50,29 @@ export default function NotificationsBell() {
   }
 
   return (
-    <div style={{ position: "fixed", top: "16px", right: "16px", zIndex: 60 }}>
+    <div style={{ position: "fixed", top: "18px", right: "18px", zIndex: 60 }}>
       <div style={{ position: "relative" }}>
         <button
           type="button"
+          className="bell-btn"
           onClick={() => setOpen((prev) => !prev)}
           style={{
-            width: "44px",
-            height: "44px",
-            borderRadius: "50%",
-            border: "2px solid var(--primary)",
-            background: "#fff",
+            width: "40px",
+            height: "40px",
+            borderRadius: "10px",
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
             cursor: "pointer",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 2px 8px rgba(91,13,31,0.1)",
+            boxShadow: "0 1px 4px rgba(91,13,31,0.06)",
           }}
           aria-label="Notifications"
         >
           <svg
-            width="20"
-            height="20"
+            width="18"
+            height="18"
             viewBox="0 0 24 24"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
@@ -88,13 +88,13 @@ export default function NotificationsBell() {
           <span
             style={{
               position: "absolute",
-              top: "2px",
-              right: "2px",
-              width: "12px",
-              height: "12px",
+              top: "-2px",
+              right: "-2px",
+              width: "10px",
+              height: "10px",
               borderRadius: "50%",
-              background: "#d32f2f",
-              border: "2px solid #fff",
+              background: "var(--danger)",
+              border: "2px solid var(--surface)",
             }}
           />
         )}
@@ -102,61 +102,67 @@ export default function NotificationsBell() {
 
       {open && (
         <div
+          className="dropdown-enter"
           style={{
             position: "absolute",
             right: 0,
-            marginTop: "10px",
+            marginTop: "8px",
             width: "320px",
-            background: "#fff",
-            border: "2px solid var(--primary)",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
             borderRadius: "14px",
-            boxShadow: "0 12px 40px rgba(91,13,31,0.15)",
+            boxShadow: "0 8px 32px rgba(91,13,31,0.12)",
             padding: "16px",
           }}
         >
-          <div style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "18px", fontWeight: 700, marginBottom: "8px", color: "var(--primary)" }}>
+          <div style={{
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            fontSize: "16px",
+            fontWeight: 600,
+            marginBottom: "10px",
+            color: "var(--foreground)",
+          }}>
             Notifications
           </div>
           {notifications.length === 0 ? (
-            <div style={{ color: "#666" }}>No notifications yet.</div>
+            <div style={{ color: "var(--muted)", fontSize: "14px", padding: "8px 0" }}>No notifications yet.</div>
           ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
               {notifications.map((item) => (
-                <li
+                <button
                   key={item.id}
+                  type="button"
+                  className="card-hover"
                   style={{
-                    padding: "14px",
+                    padding: "12px",
                     borderRadius: "10px",
-                    border:
-                      hoveredId === item.id
-                        ? "2px solid var(--primary)"
-                        : "2px solid #f0ece6",
-                    marginBottom: "8px",
+                    border: "1px solid var(--border-light)",
+                    background: "var(--surface)",
                     cursor: "pointer",
+                    textAlign: "left",
+                    width: "100%",
                   }}
-                  onMouseEnter={() => setHoveredId(item.id)}
-                  onMouseLeave={() => setHoveredId(null)}
                   onClick={() => {
                     setDismissedIds((prev) => new Set(prev).add(item.id));
                     setNotifications((prev) => prev.filter((n) => n.id !== item.id));
                   }}
                 >
-                  <div style={{ fontWeight: 700 }}>{item.message}</div>
-                  <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "4px" }}>
+                  <div style={{ fontWeight: 600, fontSize: "13px", color: "var(--foreground)" }}>{item.message}</div>
+                  <div style={{ fontSize: "11px", color: "var(--muted)", marginTop: "4px" }}>
                     {item.meetingDate ? (
                       <>
                         {item.meetingDate}
-                        {item.meetingTime ? ` • ${item.meetingTime}` : ""}
+                        {item.meetingTime ? ` \u00b7 ${item.meetingTime}` : ""}
                       </>
                     ) : (
                       <>
-                        Day {item.day} • {item.period === "BREAK" ? "Break" : `Period ${item.period}`}
+                        Day {item.day} &middot; {item.period === "BREAK" ? "Break" : `Period ${item.period}`}
                       </>
                     )}
                   </div>
-                </li>
+                </button>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       )}

@@ -10,10 +10,18 @@
   --accent: #8a1a35;
   --accent-soft: #ede4e6;
   --surface: #ffffff;
+  --surface-warm: #faf8f5;
   --border: #d4cfc8;
+  --border-light: #e8e4dd;
   --muted: #71706e;
   --danger: #b91c1c;
   --success: #15803d;
+
+  /* Harmonized schedule palette */
+  --slot-match: #3d7a5c;
+  --slot-oh: #7a5080;
+  --slot-teacher: #b87333;
+  --slot-student: #5b7e95;
 }
 
 @theme inline {
@@ -21,6 +29,10 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -33,9 +45,12 @@ body {
 
 h1, h2, h3 {
   font-family: var(--font-lora, Georgia, 'Times New Roman', serif);
-  letter-spacing: -0.01em;
-  line-height: 1.2;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-wrap: balance;
 }
+
+/* ── Focus & Inputs ── */
 
 input:focus, select:focus, textarea:focus {
   outline: none;
@@ -43,13 +58,146 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(91, 13, 31, 0.12);
 }
 
+input:hover, select:hover, textarea:hover {
+  border-color: #b8b3ac;
+}
+
+/* ── Buttons ── */
+
 button {
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
 }
 
 button:active {
   transform: scale(0.97);
 }
+
+/* Filled buttons (maroon, danger filled, etc.) */
+.btn-fill {
+  transition: filter 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.btn-fill:hover {
+  filter: brightness(1.25);
+  box-shadow: 0 2px 10px rgba(91, 13, 31, 0.2);
+}
+.btn-fill:active {
+  filter: brightness(0.95);
+  box-shadow: none;
+}
+
+/* Outlined buttons */
+.btn-outline:hover {
+  background: var(--primary-soft) !important;
+  border-color: var(--primary) !important;
+}
+
+/* Danger outlined → fills on hover */
+.btn-danger-outline:hover {
+  background: var(--danger) !important;
+  color: #fff !important;
+}
+
+/* Ghost/text buttons */
+.btn-ghost:hover {
+  background: rgba(91, 13, 31, 0.06) !important;
+}
+
+/* ── Interactive list items / cards ── */
+
+.card-hover {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+.card-hover:hover {
+  border-color: var(--primary) !important;
+  box-shadow: 0 4px 16px rgba(91, 13, 31, 0.1);
+  transform: translateY(-1px);
+}
+
+/* ── Schedule grid buttons ── */
+
+.slot-btn {
+  transition: transform 0.1s ease, filter 0.1s ease, box-shadow 0.1s ease;
+}
+.slot-btn:hover {
+  filter: brightness(0.88);
+  transform: scale(1.08);
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ── Skeleton loader ── */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #ede8e2 25%, #e0dbd4 50%, #ede8e2 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 8px;
+}
+
+/* ── Sidebar nav links ── */
+
+.nav-link {
+  transition: background 0.15s ease, border-color 0.15s ease, padding-left 0.15s ease;
+}
+.nav-link:hover {
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ── Notification bell ── */
+
+.bell-btn {
+  transition: box-shadow 0.2s ease, transform 0.15s ease !important;
+}
+.bell-btn:hover {
+  box-shadow: 0 4px 14px rgba(91, 13, 31, 0.18) !important;
+  transform: scale(1.08);
+}
+
+/* ── Modal animations ── */
+
+.modal-overlay {
+  animation: fadeIn 0.15s ease;
+}
+
+.modal-panel {
+  animation: slideUp 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Dropdown animation ── */
+
+.dropdown-enter {
+  animation: dropIn 0.15s ease;
+}
+
+@keyframes dropIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .sidebar-desktop {
+    display: none !important;
+  }
+}
+
+/* ── Scrollbar ── */
 
 ::-webkit-scrollbar {
   width: 8px;

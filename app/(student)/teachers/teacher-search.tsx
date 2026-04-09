@@ -39,106 +39,108 @@ export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps)
   return (
     <div>
       {bookingSuccess && (
-        <div
-          style={{
-            padding: "14px 18px",
-            background: "#ecfdf5",
-            border: "2px solid var(--success)",
-            borderRadius: "10px",
-            color: "var(--success)",
-            marginBottom: "16px",
-            fontWeight: 700,
-          }}
-        >
-          Meeting request sent successfully!
+        <div style={{
+          padding: "12px 16px",
+          background: "#f0fdf4",
+          border: "1px solid #bbf7d0",
+          borderRadius: "10px",
+          color: "var(--success)",
+          marginBottom: "16px",
+          fontWeight: 600,
+          fontSize: "14px",
+        }}>
+          Meeting request sent successfully.
         </div>
       )}
-      <div
-        style={{
-          border: "none",
-          borderLeft: "4px solid var(--primary)",
-          borderRadius: "10px",
-          padding: "28px",
-          background: "#fff",
-          boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
-        }}
-      >
-      <label style={{ display: "block", marginBottom: "8px", fontWeight: 700, fontSize: "13px", textTransform: "uppercase" as const, letterSpacing: "0.05em", color: "var(--muted)" }}>
-        {isAdmin ? "Search for a user" : "Search for a teacher"}
-      </label>
-      <input
-        type="text"
-        value={query}
-        onChange={(event) => {
-          setQuery(event.target.value);
-          setSelected(null);
-        }}
-        placeholder="Start typing a name or email..."
-        style={{
-          width: "100%",
-          padding: "14px 16px",
-          borderRadius: "8px",
-          border: "2px solid var(--border)",
-          fontSize: "15px",
-        }}
-      />
+      <div style={{
+        borderRadius: "14px",
+        padding: "28px",
+        background: "var(--surface)",
+        boxShadow: "0 1px 3px rgba(91,13,31,0.04), 0 4px 20px rgba(91,13,31,0.06)",
+        border: "1px solid var(--border-light)",
+      }}>
+        <label style={{
+          display: "block",
+          marginBottom: "8px",
+          fontWeight: 600,
+          fontSize: "12px",
+          letterSpacing: "0.03em",
+          color: "var(--muted)",
+        }}>
+          {isAdmin ? "Search for a user" : "Search for a teacher"}
+        </label>
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setSelected(null);
+          }}
+          placeholder="Start typing a name or email..."
+          style={{
+            width: "100%",
+            padding: "12px 16px",
+            borderRadius: "8px",
+            border: "1px solid var(--border)",
+            fontSize: "14px",
+          }}
+        />
 
-      {query.trim().length > 0 && (
-        <div style={{ marginTop: "12px" }}>
-          {suggestions.length === 0 ? (
-            <p style={{ color: "#666" }}>No matches.</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
-              {suggestions.map((teacher) => (
-                <li key={teacher.id} style={{ marginBottom: "8px" }}>
+        {query.trim().length > 0 && (
+          <div style={{ marginTop: "12px" }}>
+            {suggestions.length === 0 ? (
+              <p style={{ color: "var(--muted)", fontSize: "14px" }}>No matches.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {suggestions.map((teacher) => (
                   <button
+                    key={teacher.id}
                     type="button"
+                    className="card-hover"
                     onClick={() => handleSelect(teacher)}
                     style={{
                       width: "100%",
                       textAlign: "left",
-                      padding: "14px 16px",
+                      padding: "12px 16px",
                       borderRadius: "10px",
-                      border: "2px solid #f0ece6",
-                      backgroundColor: "#fff",
+                      border: selected?.id === teacher.id ? "1px solid var(--primary)" : "1px solid var(--border-light)",
+                      backgroundColor: selected?.id === teacher.id ? "var(--primary-soft)" : "var(--surface)",
                       cursor: "pointer",
                     }}
                   >
-                    <span style={{ fontWeight: 700, fontSize: "15px" }}>{teacher.fullName}</span>
-                    <div style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
+                    <span style={{ fontWeight: 600, fontSize: "14px" }}>{teacher.fullName}</span>
+                    <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>
                       {teacher.email}
                     </div>
                   </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-      <button
-        type="button"
-        onClick={() => {
-          if (!selected) return;
-          router.push(`/teachers/${selected.id}?name=${encodeURIComponent(selected.fullName)}`);
-        }}
-        disabled={!selected}
-        style={{
-          marginTop: "16px",
-          padding: "14px 24px",
-          backgroundColor: selected ? "var(--primary)" : "#d4cfc8",
-          color: "white",
-          borderRadius: "10px",
-          border: "none",
-          cursor: selected ? "pointer" : "not-allowed",
-          fontWeight: 700,
-          textTransform: "uppercase" as const,
-          letterSpacing: "0.05em",
-          fontSize: "15px",
-        }}
-      >
-        Show availability
-      </button>
+        <button
+          type="button"
+          className={selected ? "btn-fill" : ""}
+          onClick={() => {
+            if (!selected) return;
+            router.push(`/teachers/${selected.id}?name=${encodeURIComponent(selected.fullName)}`);
+          }}
+          disabled={!selected}
+          style={{
+            marginTop: "16px",
+            padding: "12px 20px",
+            backgroundColor: selected ? "var(--primary)" : "var(--border)",
+            color: "white",
+            borderRadius: "8px",
+            border: "none",
+            cursor: selected ? "pointer" : "not-allowed",
+            fontWeight: 600,
+            fontSize: "14px",
+          }}
+        >
+          Show availability
+        </button>
       </div>
     </div>
   );

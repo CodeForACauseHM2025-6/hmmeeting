@@ -70,16 +70,31 @@ export default async function TeachersPage() {
   const emptyMessage = isAdmin ? "No users found yet." : "No teachers found yet.";
 
   return (
-    <div style={{ padding: "40px", maxWidth: "900px", margin: "0 auto" }}>
-      <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '34px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>
+    <div style={{ padding: "48px 40px", maxWidth: "900px", margin: "0 auto" }}>
+      <h1 style={{
+        fontFamily: 'var(--font-lora, Georgia, serif)',
+        fontSize: '32px',
+        fontWeight: 700,
+        marginBottom: '6px',
+        color: 'var(--primary)',
+        letterSpacing: '-0.02em',
+      }}>
         {heading}
       </h1>
-      <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
-      <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>
+      <p style={{ fontSize: '14px', color: 'var(--muted)', marginBottom: '32px' }}>
         {subtitle}
       </p>
       {userOptions.length === 0 ? (
-        <p>{emptyMessage}</p>
+        <div style={{
+          padding: "32px 20px",
+          textAlign: "center",
+          color: "var(--muted)",
+          background: "var(--surface-warm)",
+          borderRadius: "14px",
+          border: "1px solid var(--border-light)",
+        }}>
+          <p style={{ fontSize: "15px" }}>{emptyMessage}</p>
+        </div>
       ) : (
         <TeacherSearch teachers={userOptions} isAdmin={isAdmin} />
       )}

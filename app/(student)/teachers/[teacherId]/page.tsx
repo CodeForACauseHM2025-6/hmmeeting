@@ -39,7 +39,6 @@ export default function TeacherAvailabilityPage() {
   const [selectedSlot, setSelectedSlot] = useState<{ day: number; period: PeriodValue } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [booking, setBooking] = useState(false);
-  const [showLegend, setShowLegend] = useState(false);
   const [studentNote, setStudentNote] = useState("");
   const [teacherRoom, setTeacherRoom] = useState<string | null>(null);
 
@@ -63,25 +62,6 @@ export default function TeacherAvailabilityPage() {
     [studentSchedule]
   );
 
-  const matchingByDay = useMemo(() => {
-    const map = new Map<number, PeriodValue[]>();
-    DAYS.forEach((day) => {
-      PERIODS.forEach((period) => {
-        const key = `${day}-${period}`;
-        if (teacherFreeSet.has(key) && studentFreeSet.has(key)) {
-          const list = map.get(day) ?? [];
-          list.push(period);
-          map.set(day, list);
-        }
-      });
-    });
-
-    return Array.from(map.entries()).map(([day, periods]) => ({
-      day,
-      periods: periods.sort((a, b) => PERIODS.indexOf(a) - PERIODS.indexOf(b)),
-    }));
-  }, [teacherFreeSet, studentFreeSet]);
-  
   const { orderedDays, todayCycleDay } = useMemo(() => {
     if (!dayDates || Object.keys(dayDates).length === 0) return { orderedDays: DAYS, todayCycleDay: null };
 
@@ -157,7 +137,19 @@ export default function TeacherAvailabilityPage() {
   }, [teacherId, router]);
 
   if (loading) {
-    return <div style={{ padding: "20px 32px", fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "18px", color: "var(--muted)" }}>Loading availability...</div>;
+    return (
+      <div style={{ padding: "48px 40px", maxWidth: "900px", margin: "0 auto" }}>
+        <div className="skeleton" style={{ height: "36px", width: "280px", marginBottom: "8px" }} />
+        <div className="skeleton" style={{ height: "14px", width: "180px", marginBottom: "32px" }} />
+        <div style={{
+          background: "var(--surface-warm)",
+          borderRadius: "14px",
+          padding: "28px",
+        }}>
+          <div className="skeleton" style={{ height: "300px", width: "100%" }} />
+        </div>
+      </div>
+    );
   }
 
   const hasOfficeHours = officeHoursSet.size > 0;
@@ -211,66 +203,106 @@ export default function TeacherAvailabilityPage() {
   };
 
   return (
-    <div style={{ padding: "20px 32px", maxWidth: "900px", margin: "0 auto" }}>
-      <h1 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "34px", fontWeight: 700, color: "var(--primary)", marginBottom: "8px" }}>
-        {teacherName}&apos;s Availability
+    <div style={{ padding: "48px 40px", maxWidth: "900px", margin: "0 auto" }}>
+      <h1 style={{
+        fontFamily: "var(--font-lora, Georgia, serif)",
+        fontSize: "32px",
+        fontWeight: 700,
+        color: "var(--primary)",
+        marginBottom: "6px",
+        letterSpacing: "-0.02em",
+      }}>
+        {teacherName}&apos;s availability
       </h1>
-      <div style={{ background: "var(--accent)", height: "3px", width: "60px", borderRadius: "2px", marginBottom: "24px" }} />
+      <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "24px" }}>
+        Tap a slot to book a meeting.
+      </p>
 
       {message && !modalOpen && (
-        <div style={{ marginBottom: "16px", padding: "12px 16px", borderRadius: "8px", border: "2px solid var(--danger)", background: "#fef2f2", color: "var(--danger)", fontWeight: 600 }}>
+        <div style={{
+          marginBottom: "16px",
+          padding: "12px 16px",
+          borderRadius: "10px",
+          border: "1px solid #fecaca",
+          background: "#fef2f2",
+          color: "var(--danger)",
+          fontWeight: 600,
+          fontSize: "14px",
+        }}>
           {message}
         </div>
       )}
 
-      {/* Legend */}
-      <div style={{ marginBottom: "20px" }}>
-        <button
-          type="button"
-          onClick={() => setShowLegend(!showLegend)}
-          style={{ background: "none", border: "none", color: "var(--primary)", fontWeight: 700, fontSize: "14px", cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.04em" }}
-        >
-          {showLegend ? "Hide legend" : "Show legend"}
-        </button>
-        {showLegend && (
-          <div style={{ display: "flex", gap: "20px", flexWrap: "wrap", marginTop: "12px", padding: "16px", background: "#fff", borderRadius: "10px", borderLeft: "4px solid var(--primary)", boxShadow: "0 2px 8px rgba(91,13,31,0.06)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#1a7a2f", border: "2px solid #1a7a2f" }} />
-              <span style={{ fontSize: "13px", fontWeight: 600 }}>Both free (bookable)</span>
-            </div>
-            {hasOfficeHours && (
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#6a1b9a", border: "2px solid #6a1b9a" }} />
-                <span style={{ fontSize: "13px", fontWeight: 600 }}>Office hours (bookable)</span>
-              </div>
-            )}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#e65100", border: "2px solid #e65100" }} />
-              <span style={{ fontSize: "13px", fontWeight: 600 }}>Teacher free (bookable)</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#1565c0", border: "2px solid #1565c0" }} />
-              <span style={{ fontSize: "13px", fontWeight: 600 }}>You free only</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <span style={{ width: "24px", height: "24px", borderRadius: "4px", background: "#f5f2ed", border: "2px solid var(--border)" }} />
-              <span style={{ fontSize: "13px", fontWeight: 600 }}>Neither free</span>
-            </div>
+      {/* Legend — always visible */}
+      <div style={{
+        display: "flex",
+        gap: "16px",
+        flexWrap: "wrap",
+        marginBottom: "20px",
+        padding: "14px 18px",
+        background: "var(--surface-warm)",
+        borderRadius: "10px",
+        border: "1px solid var(--border-light)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ width: "18px", height: "18px", borderRadius: "4px", background: "var(--slot-match)" }} />
+          <span style={{ fontSize: "12px", color: "var(--muted)" }}>Both free</span>
+        </div>
+        {hasOfficeHours && (
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <span style={{ width: "18px", height: "18px", borderRadius: "4px", background: "var(--slot-oh)" }} />
+            <span style={{ fontSize: "12px", color: "var(--muted)" }}>Office hours</span>
           </div>
         )}
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ width: "18px", height: "18px", borderRadius: "4px", background: "var(--slot-teacher)" }} />
+          <span style={{ fontSize: "12px", color: "var(--muted)" }}>Teacher free</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ width: "18px", height: "18px", borderRadius: "4px", background: "var(--slot-student)" }} />
+          <span style={{ fontSize: "12px", color: "var(--muted)" }}>You free</span>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <span style={{ width: "18px", height: "18px", borderRadius: "4px", background: "var(--surface-warm)", border: "1px solid var(--border)" }} />
+          <span style={{ fontSize: "12px", color: "var(--muted)" }}>Neither</span>
+        </div>
       </div>
 
-      <div style={{ overflowX: "auto", border: "2px solid var(--primary)", borderRadius: "12px", overflow: "hidden", boxShadow: "0 4px 20px rgba(91,13,31,0.08)" }}>
+      {/* Schedule grid */}
+      <div style={{
+        overflowX: "auto",
+        borderRadius: "12px",
+        overflow: "hidden",
+        border: "1px solid var(--border)",
+        boxShadow: "0 1px 3px rgba(91,13,31,0.04), 0 4px 20px rgba(91,13,31,0.06)",
+      }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr>
-              <th style={{ textAlign: "left", padding: "8px 8px", background: "var(--primary)", color: "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>Period</th>
+              <th style={{
+                textAlign: "left",
+                padding: "10px 10px",
+                background: "var(--primary)",
+                color: "#fff",
+                fontWeight: 600,
+                fontSize: "12px",
+                letterSpacing: "0.04em",
+              }}>
+                Period
+              </th>
               {orderedDays.map((day) => (
-                <th key={day} style={{ padding: "8px 8px", background: day === todayCycleDay ? "var(--primary-soft)" : "var(--primary)", color: day === todayCycleDay ? "var(--primary)" : "#fff", fontWeight: 700, textTransform: "uppercase", fontSize: "12px", letterSpacing: "0.06em", borderBottom: "2px solid var(--primary)" }}>
+                <th key={day} style={{
+                  padding: "10px 8px",
+                  background: day === todayCycleDay ? "var(--primary-light)" : "var(--primary)",
+                  color: "#fff",
+                  fontWeight: 600,
+                  fontSize: "12px",
+                  letterSpacing: "0.04em",
+                }}>
                   <div>
                     Day {day}
                     {dayDates[day] && (
-                      <div style={{ fontSize: 12 }}>
+                      <div style={{ fontSize: "11px", fontWeight: 400, opacity: 0.8, marginTop: "2px" }}>
                         {formatScheduleDate(dayDates[day])}
                       </div>
                     )}
@@ -283,37 +315,50 @@ export default function TeacherAvailabilityPage() {
           <tbody>
             {PERIODS.map((period) => (
               <tr key={period}>
-                <td style={{ fontWeight: 700, fontSize: "15px", padding: "6px 8px", color: "var(--primary)", borderBottom: "1px solid #ede4e6", background: "#fff" }}>{period === "BREAK" ? "Break" : period}</td>
+                <td style={{
+                  fontWeight: 600,
+                  fontSize: "13px",
+                  padding: "6px 10px",
+                  color: "var(--primary)",
+                  borderBottom: "1px solid var(--border-light)",
+                  background: "var(--surface)",
+                }}>
+                  {period === "BREAK" ? "Break" : period}
+                </td>
                 {orderedDays.map((day) => {
                   const key = `${day}-${period}`;
                   const teacherFree = teacherFreeSet.has(key);
                   const studentFree = studentFreeSet.has(key);
                   const isOH = officeHoursSet.has(key);
-                  let backgroundColor = "#f5f2ed";
-                  let cellBorder = "2px solid var(--primary)";
-                  if (isOH) backgroundColor = "#6a1b9a";
-                  else if (teacherFree && studentFree) backgroundColor = "#1a7a2f";
-                  else if (studentFree) backgroundColor = "#1565c0";
-                  else if (teacherFree) backgroundColor = "#e65100";
-                  else cellBorder = "2px solid var(--border)";
+                  let backgroundColor = "var(--surface-warm)";
+                  let borderColor = "var(--border)";
+                  if (isOH) { backgroundColor = "var(--slot-oh)"; borderColor = "var(--slot-oh)"; }
+                  else if (teacherFree && studentFree) { backgroundColor = "var(--slot-match)"; borderColor = "var(--slot-match)"; }
+                  else if (studentFree) { backgroundColor = "var(--slot-student)"; borderColor = "var(--slot-student)"; }
+                  else if (teacherFree) { backgroundColor = "var(--slot-teacher)"; borderColor = "var(--slot-teacher)"; }
 
+                  const isColored = backgroundColor !== "var(--surface-warm)";
                   const displayLabel = isOH ? "OH" : period === "BREAK" ? "Break" : period;
 
                   return (
-                    <td key={key} style={{ padding: "3px 4px", backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "#fff", borderBottom: "1px solid #ede4e6" }}>
+                    <td key={key} style={{
+                      padding: "3px 4px",
+                      backgroundColor: day === todayCycleDay ? "var(--primary-soft)" : "var(--surface)",
+                      borderBottom: "1px solid var(--border-light)",
+                    }}>
                       <button
                         type="button"
+                        className="slot-btn"
                         onClick={() => handleSlotClick(day, period)}
                         style={{
                           width: "100%",
                           padding: "6px 0",
                           borderRadius: "6px",
-                          fontSize: "12px",
-                          border: cellBorder,
+                          border: `2px solid ${borderColor}`,
                           backgroundColor,
-                          color: backgroundColor === "#f5f2ed" ? "var(--muted)" : "#fff",
-                          fontWeight: 700,
-                          fontSize: "13px",
+                          color: isColored ? "#fff" : "var(--muted)",
+                          fontWeight: 600,
+                          fontSize: "12px",
                           cursor: "pointer",
                         }}
                       >
@@ -331,6 +376,7 @@ export default function TeacherAvailabilityPage() {
       {/* Booking Modal */}
       {modalOpen && selectedSlot && (
         <div
+          className="modal-overlay"
           style={{
             position: "fixed",
             inset: 0,
@@ -343,18 +389,25 @@ export default function TeacherAvailabilityPage() {
           onClick={() => { setModalOpen(false); setMessage(""); }}
         >
           <div
+            className="modal-panel"
             style={{
-              background: "#fff",
-              borderRadius: "14px",
+              background: "var(--surface)",
+              borderRadius: "16px",
               padding: "32px",
               maxWidth: "440px",
               width: "90%",
-              boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.15)",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ fontFamily: "var(--font-lora, Georgia, serif)", fontSize: "22px", fontWeight: 700, color: "var(--primary)", marginBottom: "8px" }}>
-              {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book Office Hours" : "Request Meeting"}
+            <h3 style={{
+              fontFamily: "var(--font-lora, Georgia, serif)",
+              fontSize: "22px",
+              fontWeight: 700,
+              color: "var(--primary)",
+              marginBottom: "8px",
+            }}>
+              {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book office hours" : "Request meeting"}
             </h3>
             <p style={{ color: "var(--muted)", fontSize: "14px", marginBottom: "12px" }}>
               {teacherName} &middot; Day {selectedSlot.day} &middot; {selectedSlot.period === "BREAK" ? "Break" : `Period ${selectedSlot.period}`}
@@ -363,7 +416,7 @@ export default function TeacherAvailabilityPage() {
               )}
             </p>
             {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && teacherRoom && (
-              <p style={{ fontSize: "14px", fontWeight: 700, color: "var(--primary)", marginBottom: "20px" }}>
+              <p style={{ fontSize: "14px", fontWeight: 600, color: "var(--primary)", marginBottom: "20px" }}>
                 Room: {teacherRoom}
               </p>
             )}
@@ -379,10 +432,10 @@ export default function TeacherAvailabilityPage() {
               else if (!sFree) warnings.push("You are not marked as free for this period.");
               if (warnings.length === 0) return null;
               return (
-                <div style={{ marginBottom: "16px", padding: "10px 14px", borderRadius: "8px", border: "2px solid var(--danger)", background: "#fef2f2" }}>
+                <div style={{ marginBottom: "16px", padding: "10px 14px", borderRadius: "8px", border: "1px solid #fecaca", background: "#fef2f2" }}>
                   {warnings.map((w, i) => (
                     <p key={i} style={{ color: "var(--danger)", fontWeight: 600, fontSize: "13px", margin: 0 }}>
-                      <span style={{ color: "var(--danger)", fontWeight: 700 }}>* </span>{w}
+                      {w}
                     </p>
                   ))}
                 </div>
@@ -391,7 +444,7 @@ export default function TeacherAvailabilityPage() {
 
             {!officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && (
               <div style={{ marginBottom: "16px" }}>
-                <label style={{ display: "block", fontWeight: 700, fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: "8px" }}>
+                <label style={{ display: "block", fontWeight: 600, fontSize: "12px", letterSpacing: "0.03em", color: "var(--muted)", marginBottom: "8px" }}>
                   Reason for meeting (required)
                 </label>
                 <textarea
@@ -401,10 +454,10 @@ export default function TeacherAvailabilityPage() {
                   rows={3}
                   style={{
                     width: "100%",
-                    padding: "6px 8px",
+                    padding: "10px 12px",
                     borderRadius: "8px",
-                    border: "2px solid var(--border)",
-                    fontSize: "15px",
+                    border: "1px solid var(--border)",
+                    fontSize: "14px",
                     resize: "vertical",
                     boxSizing: "border-box",
                   }}
@@ -414,7 +467,7 @@ export default function TeacherAvailabilityPage() {
 
             {officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) && (
               <div style={{ marginBottom: "16px" }}>
-                <label style={{ display: "block", fontWeight: 700, fontSize: "13px", textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--muted)", marginBottom: "8px" }}>
+                <label style={{ display: "block", fontWeight: 600, fontSize: "12px", letterSpacing: "0.03em", color: "var(--muted)", marginBottom: "8px" }}>
                   Note (optional)
                 </label>
                 <textarea
@@ -424,10 +477,10 @@ export default function TeacherAvailabilityPage() {
                   rows={2}
                   style={{
                     width: "100%",
-                    padding: "6px 8px",
+                    padding: "10px 12px",
                     borderRadius: "8px",
-                    border: "2px solid var(--border)",
-                    fontSize: "15px",
+                    border: "1px solid var(--border)",
+                    fontSize: "14px",
                     resize: "vertical",
                     boxSizing: "border-box",
                   }}
@@ -441,39 +494,42 @@ export default function TeacherAvailabilityPage() {
               </div>
             )}
 
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
               <button
                 type="button"
+                className="btn-outline"
                 onClick={() => { setModalOpen(false); setMessage(""); }}
                 style={{
-                  padding: "12px 20px",
+                  padding: "10px 18px",
                   borderRadius: "8px",
-                  border: "2px solid var(--border)",
-                  background: "#fff",
-                  fontWeight: 700,
+                  border: "1px solid var(--border)",
+                  background: "var(--surface)",
+                  fontWeight: 600,
+                  fontSize: "14px",
                   cursor: "pointer",
+                  color: "var(--foreground)",
                 }}
               >
                 Cancel
               </button>
               <button
                 type="button"
+                className="btn-fill"
                 onClick={handleBook}
                 disabled={booking}
                 style={{
-                  padding: "12px 20px",
+                  padding: "10px 18px",
                   borderRadius: "8px",
                   border: "none",
                   background: "var(--primary)",
                   color: "#fff",
-                  fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
+                  fontWeight: 600,
+                  fontSize: "14px",
                   cursor: booking ? "not-allowed" : "pointer",
                   opacity: booking ? 0.7 : 1,
                 }}
               >
-                {booking ? "Booking..." : officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book" : "Send Request"}
+                {booking ? "Booking..." : officeHoursSet.has(`${selectedSlot.day}-${selectedSlot.period}`) ? "Book" : "Send request"}
               </button>
             </div>
           </div>

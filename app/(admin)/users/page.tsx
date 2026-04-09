@@ -162,35 +162,46 @@ export default async function AdminUsersPage() {
   }));
 
   return (
-    <div style={{ padding: "40px", maxWidth: "900px", margin: "0 auto" }}>
-      <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '34px', fontWeight: 700, marginBottom: '8px', color: 'var(--primary)' }}>
-        User Directory
+    <div style={{ padding: "48px 40px", maxWidth: "900px", margin: "0 auto" }}>
+      <h1 style={{
+        fontFamily: 'var(--font-lora, Georgia, serif)',
+        fontSize: '32px',
+        fontWeight: 700,
+        marginBottom: '32px',
+        color: 'var(--primary)',
+        letterSpacing: '-0.02em',
+      }}>
+        User directory
       </h1>
-      <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '32px' }} />
-      <div
-        style={{
-          border: 'none',
-          borderLeft: '4px solid var(--primary)',
-          borderRadius: '10px',
-          padding: '28px',
-          marginBottom: '28px',
-          background: '#fff',
-          boxShadow: '0 4px 20px rgba(91,13,31,0.08)',
-        }}
-      >
-        <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '22px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>
+
+      {/* Add/update user role */}
+      <div style={{
+        borderRadius: '14px',
+        padding: '24px 28px',
+        marginBottom: '20px',
+        background: 'var(--surface)',
+        boxShadow: '0 1px 3px rgba(91,13,31,0.04), 0 4px 20px rgba(91,13,31,0.06)',
+        border: '1px solid var(--border-light)',
+      }}>
+        <h2 style={{
+          fontFamily: 'var(--font-lora, Georgia, serif)',
+          fontSize: '18px',
+          fontWeight: 600,
+          marginBottom: '14px',
+          color: 'var(--foreground)',
+        }}>
           Add or update a user role
         </h2>
-        <form action={upsertUserRole} style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        <form action={upsertUserRole} style={{ display: "grid", gap: "10px", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
           <input
             name="fullName"
             placeholder="Full name"
             required
             style={{
-              padding: '12px 14px',
+              padding: '10px 14px',
               borderRadius: '8px',
-              border: '2px solid var(--border)',
-              fontSize: '15px',
+              border: '1px solid var(--border)',
+              fontSize: '14px',
             }}
           />
           <input
@@ -198,20 +209,20 @@ export default async function AdminUsersPage() {
             placeholder="Email"
             required
             style={{
-              padding: '12px 14px',
+              padding: '10px 14px',
               borderRadius: '8px',
-              border: '2px solid var(--border)',
-              fontSize: '15px',
+              border: '1px solid var(--border)',
+              fontSize: '14px',
             }}
           />
           <select
             name="role"
             defaultValue="TEACHER"
             style={{
-              padding: '12px 14px',
+              padding: '10px 14px',
               borderRadius: '8px',
-              border: '2px solid var(--border)',
-              fontSize: '15px',
+              border: '1px solid var(--border)',
+              fontSize: '14px',
             }}
           >
             {ROLE_OPTIONS.map((role) => (
@@ -222,16 +233,15 @@ export default async function AdminUsersPage() {
           </select>
           <button
             type="submit"
+            className="btn-fill"
             style={{
-              padding: '14px 20px',
+              padding: '10px 18px',
               borderRadius: '8px',
               border: 'none',
               backgroundColor: 'var(--primary)',
               color: '#fff',
-              fontWeight: 700,
+              fontWeight: 600,
               fontSize: '14px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
               cursor: 'pointer',
             }}
           >
@@ -240,41 +250,44 @@ export default async function AdminUsersPage() {
         </form>
       </div>
 
-      <div
-        style={{
-          border: 'none',
-          borderLeft: '4px solid var(--primary)',
-          borderRadius: '10px',
-          padding: '28px',
-          marginBottom: '28px',
-          background: '#fff',
-          boxShadow: '0 4px 20px rgba(91,13,31,0.08)',
-        }}
-      >
-        <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: '22px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>
+      {/* Schedule week — flat/inset style for variety */}
+      <div style={{
+        borderRadius: '14px',
+        padding: '24px 28px',
+        marginBottom: '20px',
+        background: 'var(--surface-warm)',
+        border: '1px solid var(--border-light)',
+      }}>
+        <h2 style={{
+          fontFamily: 'var(--font-lora, Georgia, serif)',
+          fontSize: '18px',
+          fontWeight: 600,
+          marginBottom: '12px',
+          color: 'var(--foreground)',
+        }}>
           Schedule week
         </h2>
-        <div style={{ color: "#555", marginBottom: "12px" }}>
+        <div style={{ color: "var(--muted)", marginBottom: "14px", fontSize: "14px", lineHeight: 1.7 }}>
           <div>
-            Current week setting: <strong>Week {currentWeekValue}</strong>
+            Current week setting: <strong style={{ color: "var(--foreground)" }}>Week {currentWeekValue}</strong>
           </div>
           <div>
-            Effective week today: <strong>Week {effectiveWeek}</strong>
+            Effective week today: <strong style={{ color: "var(--foreground)" }}>Week {effectiveWeek}</strong>
           </div>
           <div>
             Last set: {scheduleSettings.weekSetAt.toLocaleString()}
           </div>
         </div>
-        <form action={updateScheduleWeek} style={{ display: "flex", gap: "12px", alignItems: "center" }}>
-          <label style={{ fontWeight: 600 }}>Set current week</label>
+        <form action={updateScheduleWeek} style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+          <label style={{ fontWeight: 500, fontSize: "14px", color: "var(--foreground)" }}>Set current week</label>
           <select
             name="week"
             defaultValue={String(currentWeekValue)}
             style={{
-              padding: '12px 14px',
+              padding: '10px 14px',
               borderRadius: '8px',
-              border: '2px solid var(--border)',
-              fontSize: '15px',
+              border: '1px solid var(--border)',
+              fontSize: '14px',
             }}
           >
             <option value="1">Week 1</option>
@@ -282,16 +295,15 @@ export default async function AdminUsersPage() {
           </select>
           <button
             type="submit"
+            className="btn-fill"
             style={{
-              padding: '14px 20px',
+              padding: '10px 18px',
               borderRadius: '8px',
               border: 'none',
               backgroundColor: 'var(--primary)',
               color: '#fff',
-              fontWeight: 700,
+              fontWeight: 600,
               fontSize: '14px',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
               cursor: 'pointer',
             }}
           >

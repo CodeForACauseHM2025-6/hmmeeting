@@ -1,5 +1,5 @@
 // src/app/dashboard/page.tsx
-// Dashboard page for the user. Differentiate page content based on user role. 
+// Dashboard page for the user. Differentiate page content based on user role.
 
 "use client";
 
@@ -19,7 +19,7 @@ type User = {
 export default function DashboardPage() {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    
+
     const { data: session, status } = useSession(); // gets the user's session
     const router = useRouter();
 
@@ -62,11 +62,11 @@ export default function DashboardPage() {
     }, [loading, user, router]);
 
     if (status === "loading" || loading) {
-        return <div>Loading...</div>;
+        return <DashboardSkeleton />;
     }
 
     if (status === "unauthenticated" || !user) {
-        return <div>Redirecting...</div>;
+        return <DashboardSkeleton />;
     }
 
     const firstName = user.fullName.split(" ")[0];
@@ -80,8 +80,35 @@ export default function DashboardPage() {
             return <TeacherDashboard firstName={firstName} />;
         default:
             // No role found; redirect handled by useEffect
-            return <div>Redirecting to setup...</div>;
+            return <DashboardSkeleton />;
     }
+}
+
+function DashboardSkeleton() {
+    return (
+        <div style={{ padding: "48px 40px", maxWidth: "960px", margin: "0 auto" }}>
+            <div className="skeleton" style={{ height: "40px", width: "280px", marginBottom: "12px" }} />
+            <div className="skeleton" style={{ height: "16px", width: "180px", marginBottom: "36px" }} />
+            <div style={{
+                background: "var(--surface-warm)",
+                borderRadius: "14px",
+                padding: "28px",
+                marginBottom: "20px",
+            }}>
+                <div className="skeleton" style={{ height: "22px", width: "200px", marginBottom: "20px" }} />
+                <div className="skeleton" style={{ height: "72px", width: "100%", marginBottom: "10px" }} />
+                <div className="skeleton" style={{ height: "72px", width: "100%" }} />
+            </div>
+            <div style={{
+                background: "var(--surface-warm)",
+                borderRadius: "14px",
+                padding: "28px",
+            }}>
+                <div className="skeleton" style={{ height: "22px", width: "180px", marginBottom: "20px" }} />
+                <div className="skeleton" style={{ height: "52px", width: "100%" }} />
+            </div>
+        </div>
+    );
 }
 
 function AdminRedirect() {
@@ -89,7 +116,7 @@ function AdminRedirect() {
     useEffect(() => {
         router.replace("/users");
     }, [router]);
-    return <div>Redirecting...</div>;
+    return <DashboardSkeleton />;
 }
 
 function getGreeting(): string {
@@ -99,7 +126,33 @@ function getGreeting(): string {
     return "Good evening";
 }
 
-// Student Dashboard. This displays the student's dashboard (ref. "Brighten Example Profile Page - Unael" on the Figma)
+function StatusBadge({ status }: { status: string }) {
+    const config: Record<string, { bg: string; color: string; label: string }> = {
+        CANCELLED: { bg: "#fef2f2", color: "var(--danger)", label: "Cancelled" },
+        COMPLETED: { bg: "#f0fdf4", color: "var(--success)", label: "Completed" },
+        CONFIRMED: { bg: "var(--accent-soft)", color: "var(--primary)", label: "Confirmed" },
+        PENDING: { bg: "var(--surface-warm)", color: "var(--muted)", label: "Pending" },
+    };
+    const c = config[status] ?? config.PENDING;
+    return (
+        <span style={{
+            display: "inline-block",
+            padding: "3px 10px",
+            borderRadius: "4px",
+            fontSize: "11px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "0.05em",
+            background: c.bg,
+            color: c.color,
+            marginRight: "8px",
+        }}>
+            {c.label}
+        </span>
+    );
+}
+
+// Student Dashboard
 function StudentDashboard({ firstName }: { firstName: string }) {
     const [schedule, setSchedule] = useState<{ day: number; period: PeriodValue }[]>([]);
     const [appointments, setAppointments] = useState<
@@ -229,39 +282,53 @@ function StudentDashboard({ firstName }: { firstName: string }) {
     }, [schedule]);
 
     return (
-        <div style={{ padding: "40px", maxWidth: "1000px", margin: "0 auto" }}>
-            <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "34px", fontWeight: 700, marginBottom: "12px", color: "var(--primary)" }}>
+        <div style={{ padding: "48px 40px", maxWidth: "960px", margin: "0 auto" }}>
+            {/* Greeting */}
+            <h1 style={{
+                fontFamily: "var(--font-lora, Georgia, serif)",
+                fontSize: "36px",
+                fontWeight: 700,
+                color: "var(--primary)",
+                marginBottom: "4px",
+                letterSpacing: "-0.02em",
+            }}>
                 {getGreeting()}, {firstName}
             </h1>
-            <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
+            <p style={{ color: "var(--muted)", fontSize: "15px", marginBottom: "36px" }}>
+                Here&apos;s what&apos;s on your schedule.
+            </p>
 
-            <div
-                style={{
-                    borderLeft: "4px solid var(--primary)",
-                    borderRadius: "10px",
-                    padding: "28px",
-                    background: "#fff",
-                    boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
-                }}
-            >
-                <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "22px", fontWeight: 700, marginBottom: "16px", color: "var(--primary)" }}>
+            {/* Upcoming meetings — elevated card */}
+            <div style={{
+                borderRadius: "14px",
+                padding: "28px",
+                background: "var(--surface)",
+                boxShadow: "0 1px 3px rgba(91,13,31,0.04), 0 4px 20px rgba(91,13,31,0.06)",
+                border: "1px solid var(--border-light)",
+            }}>
+                <h2 style={{
+                    fontFamily: "var(--font-lora, Georgia, serif)",
+                    fontSize: "20px",
+                    fontWeight: 600,
+                    marginBottom: "20px",
+                    color: "var(--foreground)",
+                }}>
                     Upcoming meetings
                 </h2>
                 {showBookingNotice && (
-                    <div
-                        style={{
-                            background: "#e6f7e6",
-                            color: "var(--success)",
-                            border: "2px solid var(--success)",
-                            borderRadius: "10px",
-                            padding: "14px 18px",
-                            fontWeight: 700,
-                            marginBottom: "12px",
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                        }}
-                    >
+                    <div style={{
+                        background: "#f0fdf4",
+                        color: "var(--success)",
+                        border: "1px solid #bbf7d0",
+                        borderRadius: "10px",
+                        padding: "12px 16px",
+                        fontWeight: 600,
+                        fontSize: "14px",
+                        marginBottom: "16px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                    }}>
                         <span>Booking successful.</span>
                         <button
                             type="button"
@@ -272,84 +339,95 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                 color: "var(--success)",
                                 cursor: "pointer",
                                 fontWeight: 700,
+                                fontSize: "18px",
+                                lineHeight: 1,
                             }}
                         >
-                            ×
+                            &times;
                         </button>
                     </div>
                 )}
                 {actionMessage && (
-                    <div style={{ color: "var(--primary)", marginBottom: "12px" }}>{actionMessage}</div>
+                    <div style={{ color: "var(--primary)", fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>{actionMessage}</div>
                 )}
                 {appointments.length === 0 ? (
-                    <p style={{ color: "#666" }}>No upcoming meetings yet.</p>
+                    <div style={{
+                        padding: "32px 20px",
+                        textAlign: "center",
+                        color: "var(--muted)",
+                        background: "var(--surface-warm)",
+                        borderRadius: "10px",
+                    }}>
+                        <p style={{ fontSize: "15px", marginBottom: "8px" }}>No upcoming meetings yet.</p>
+                        <Link href="/teachers" style={{
+                            color: "var(--primary)",
+                            fontWeight: 600,
+                            fontSize: "14px",
+                            textDecoration: "none",
+                        }}>
+                            Find a teacher to book a meeting
+                        </Link>
+                    </div>
                 ) : (
-                    <ul style={{ listStyle: "none", padding: 0 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {appointments.map((appointment) => (
-                            <li
+                            <div
                                 key={appointment.id}
                                 style={{
-                                    border: "2px solid #f0ece6",
+                                    border: "1px solid var(--border-light)",
                                     borderRadius: "10px",
                                     padding: "16px 20px",
-                                    borderLeft: "3px solid var(--accent)",
-                                    marginBottom: "10px",
+                                    background: "var(--surface)",
+                                    transition: "border-color 0.15s ease",
                                 }}
                             >
-                                <div style={{ fontSize: '16px', fontWeight: 700 }}>
-                                    {appointment.status === "CANCELLED" ? (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#fef2f2', color: 'var(--danger)', marginRight: '8px' }}>Cancelled</span>
-                                    ) : appointment.status === "COMPLETED" ? (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f0fdf4', color: 'var(--success)', marginRight: '8px' }}>Completed</span>
-                                    ) : appointment.status === "CONFIRMED" ? (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--accent-soft)', color: 'var(--primary)', marginRight: '8px' }}>Confirmed</span>
-                                    ) : (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f5f5f5', color: 'var(--muted)', marginRight: '8px' }}>Pending</span>
-                                    )}
-                                    Day {appointment.day} • {appointment.period === "BREAK" ? "Break" : `Period ${appointment.period}`}
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                                    <StatusBadge status={appointment.status} />
+                                    <span style={{ fontSize: "15px", fontWeight: 600 }}>
+                                        Day {appointment.day} &middot; {appointment.period === "BREAK" ? "Break" : `Period ${appointment.period}`}
+                                    </span>
                                 </div>
                                 {appointment.meetingDate && (
-                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginBottom: "4px" }}>
                                         {appointment.meetingDate}
-                                        {appointment.meetingTime ? ` • ${appointment.meetingTime}` : ""}
+                                        {appointment.meetingTime ? ` \u00b7 ${appointment.meetingTime}` : ""}
                                     </div>
                                 )}
-                                <div style={{ color: "#555", marginTop: "4px" }}>
-                                    Teacher: {appointment.teacherName} ({appointment.teacherEmail})
+                                <div style={{ color: "var(--foreground)", fontSize: "14px", marginBottom: "2px" }}>
+                                    {appointment.teacherName}
+                                    <span style={{ color: "var(--muted)", fontSize: "13px" }}> ({appointment.teacherEmail})</span>
                                 </div>
-                                    {appointment.room && (
-                                        <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
-                                            Room: {appointment.room}
-                                        </div>
-                                    )}
+                                {appointment.room && (
+                                    <div style={{ color: "var(--muted)", fontSize: "13px" }}>
+                                        Room {appointment.room}
+                                    </div>
+                                )}
                                 {appointment.studentNote && (
-                                    <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
                                         Your note: {appointment.studentNote}
                                     </div>
                                 )}
                                 {appointment.teacherNote && (
-                                        <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "2px" }}>
                                         Teacher note: {appointment.teacherNote}
-                                        </div>
-                                    )}
+                                    </div>
+                                )}
+                                {/* Action buttons */}
                                 {appointment.status === "CANCELLED" ? (
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            acknowledgeAppointment(appointment.id, "Cancelled booking acknowledged.")
-                                        }
+                                        className="btn-outline"
+                                        onClick={() => acknowledgeAppointment(appointment.id, "Cancelled booking acknowledged.")}
                                         style={{
-                                            marginTop: "8px",
-                                            padding: "10px 18px",
+                                            marginTop: "10px",
+                                            padding: "8px 16px",
                                             borderRadius: "6px",
-                                            border: "2px solid var(--primary)",
-                                            background: "#fff",
-                                            color: "var(--primary)",
+                                            border: "1px solid var(--border)",
+                                            background: "var(--surface)",
+                                            color: "var(--foreground)",
                                             cursor: "pointer",
-                                            fontWeight: 700,
+                                            fontWeight: 600,
                                             fontSize: "13px",
-                                            textTransform: "uppercase",
-                                            letterSpacing: "0.04em",
                                         }}
                                     >
                                         Acknowledge
@@ -358,82 +436,76 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                     appointment.completedBy !== "STUDENT" ? (
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                acknowledgeAppointment(appointment.id, "Completed meeting acknowledged.")
-                                            }
+                                            className="btn-outline"
+                                            onClick={() => acknowledgeAppointment(appointment.id, "Completed meeting acknowledged.")}
                                             style={{
-                                                marginTop: "8px",
-                                                padding: "10px 18px",
+                                                marginTop: "10px",
+                                                padding: "8px 16px",
                                                 borderRadius: "6px",
-                                                border: "2px solid var(--primary)",
-                                                background: "#fff",
-                                                color: "var(--primary)",
+                                                border: "1px solid var(--border)",
+                                                background: "var(--surface)",
+                                                color: "var(--foreground)",
                                                 cursor: "pointer",
-                                                fontWeight: 700,
+                                                fontWeight: 600,
                                                 fontSize: "13px",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Acknowledge
                                         </button>
                                     ) : null
                                 ) : pendingCancelId === appointment.id ? (
-                                    <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                                    <div style={{ display: "flex", gap: "8px", marginTop: "10px" }}>
                                         <button
                                             type="button"
+                                            className="btn-fill"
                                             onClick={() => cancelAppointment(appointment.id)}
                                             style={{
-                                                padding: "10px 18px",
+                                                padding: "8px 16px",
                                                 borderRadius: "6px",
-                                                border: "2px solid var(--danger)",
+                                                border: "none",
                                                 background: "var(--danger)",
                                                 color: "#fff",
                                                 cursor: "pointer",
-                                                fontWeight: 700,
+                                                fontWeight: 600,
                                                 fontSize: "13px",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Confirm cancel
                                         </button>
                                         <button
                                             type="button"
+                                            className="btn-outline"
                                             onClick={() => setPendingCancelId(null)}
                                             style={{
-                                                padding: "10px 18px",
+                                                padding: "8px 16px",
                                                 borderRadius: "6px",
-                                                border: "2px solid var(--border)",
-                                                background: "#fff",
+                                                border: "1px solid var(--border)",
+                                                background: "var(--surface)",
                                                 color: "var(--muted)",
                                                 cursor: "pointer",
-                                                fontWeight: 700,
+                                                fontWeight: 600,
                                                 fontSize: "13px",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Keep meeting
                                         </button>
                                     </div>
                                 ) : (
-                                    <div style={{ display: "flex", gap: "8px", marginTop: "8px", flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", gap: "8px", marginTop: "10px", flexWrap: "wrap" }}>
                                         {appointment.status === "CONFIRMED" && (
                                             <button
                                                 type="button"
+                                                className="btn-fill"
                                                 onClick={() => completeAppointment(appointment.id)}
                                                 style={{
-                                                    padding: "10px 18px",
+                                                    padding: "8px 16px",
                                                     borderRadius: "6px",
-                                                    border: "2px solid var(--primary)",
+                                                    border: "none",
                                                     background: "var(--primary)",
                                                     color: "#fff",
                                                     cursor: "pointer",
-                                                    fontWeight: 700,
+                                                    fontWeight: 600,
                                                     fontSize: "13px",
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: "0.04em",
                                                 }}
                                             >
                                                 Mark as completed
@@ -441,66 +513,84 @@ function StudentDashboard({ firstName }: { firstName: string }) {
                                         )}
                                         <button
                                             type="button"
+                                            className="btn-danger-outline"
                                             onClick={() => setPendingCancelId(appointment.id)}
                                             style={{
-                                                padding: "10px 18px",
+                                                padding: "8px 16px",
                                                 borderRadius: "6px",
-                                                border: "2px solid var(--danger)",
-                                                background: "#fff",
+                                                border: "1px solid var(--danger)",
+                                                background: "var(--surface)",
                                                 color: "var(--danger)",
                                                 cursor: "pointer",
-                                                fontWeight: 700,
+                                                fontWeight: 600,
                                                 fontSize: "13px",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Cancel
                                         </button>
                                     </div>
                                 )}
-                            </li>
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
             </div>
 
-            <div
-                style={{
-                    marginTop: "24px",
-                    borderLeft: "4px solid var(--primary)",
-                    borderRadius: "10px",
-                    padding: "28px",
-                    background: "#fff",
-                    boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
-                }}
-            >
-                <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "22px", fontWeight: 700, marginBottom: "16px", color: "var(--primary)" }}>
+            {/* Free periods — inset/flat card for variety */}
+            <div style={{
+                marginTop: "20px",
+                borderRadius: "14px",
+                padding: "24px 28px",
+                background: "var(--surface-warm)",
+                border: "1px solid var(--border-light)",
+            }}>
+                <h2 style={{
+                    fontFamily: "var(--font-lora, Georgia, serif)",
+                    fontSize: "18px",
+                    fontWeight: 600,
+                    marginBottom: "16px",
+                    color: "var(--foreground)",
+                }}>
                     Your free periods
                 </h2>
                 {scheduleByDay.length === 0 ? (
-                    <p style={{ color: "var(--muted)" }}>
-                        No free periods saved yet. Update your schedule in account setup.
+                    <p style={{ color: "var(--muted)", fontSize: "14px" }}>
+                        No free periods saved yet.{" "}
+                        <Link href="/account/setup" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "none" }}>
+                            Update your schedule
+                        </Link>
                     </p>
                 ) : (
-                    <ul style={{ listStyle: "none", padding: 0 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                         {scheduleByDay.map((day) => (
-                            <li
+                            <div
                                 key={day.day}
                                 style={{
-                                    border: "2px solid #f0ece6",
-                                    borderRadius: "10px",
-                                    padding: "14px 20px",
-                                    marginBottom: "10px",
+                                    background: "var(--surface)",
+                                    borderRadius: "8px",
+                                    padding: "12px 16px",
+                                    border: "1px solid var(--border-light)",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "12px",
                                 }}
                             >
-                                <strong style={{ fontSize: '16px', fontWeight: 700 }}>Day {day.day}:</strong> {day.periods.map((p) => p === "BREAK" ? "Break" : p).join(", ")}
-                            </li>
+                                <span style={{
+                                    fontWeight: 600,
+                                    fontSize: "13px",
+                                    color: "var(--primary)",
+                                    minWidth: "48px",
+                                }}>
+                                    Day {day.day}
+                                </span>
+                                <span style={{ color: "var(--muted)", fontSize: "14px" }}>
+                                    {day.periods.map((p) => p === "BREAK" ? "Break" : p).join(", ")}
+                                </span>
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
             </div>
-
         </div>
     );
 }
@@ -624,118 +714,128 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
     };
 
     return (
-        <div style={{ padding: "40px" }}>
-            <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "34px", fontWeight: 700, marginBottom: "12px", color: "var(--primary)" }}>
+        <div style={{ padding: "48px 40px", maxWidth: "960px", margin: "0 auto" }}>
+            <h1 style={{
+                fontFamily: "var(--font-lora, Georgia, serif)",
+                fontSize: "36px",
+                fontWeight: 700,
+                color: "var(--primary)",
+                marginBottom: "4px",
+                letterSpacing: "-0.02em",
+            }}>
                 {getGreeting()}, {firstName}
             </h1>
-            <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
-            <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>
-                This is your dashboard.
+            <p style={{ color: "var(--muted)", fontSize: "15px", marginBottom: "28px" }}>
+                Manage your meeting requests and availability.
             </p>
 
             <Link
                 href="/account/setup"
+                className="btn-fill"
                 style={{
                     display: "inline-block",
-                    padding: "14px 24px",
+                    padding: "12px 20px",
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    borderRadius: "10px",
+                    borderRadius: "8px",
                     textDecoration: "none",
-                    marginBottom: "24px",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    fontWeight: 700,
-                    fontSize: "15px",
+                    marginBottom: "28px",
+                    fontWeight: 600,
+                    fontSize: "14px",
                 }}
             >
                 Update availability
             </Link>
 
-            <div
-                style={{
-                    borderLeft: "4px solid var(--primary)",
-                    borderRadius: "10px",
-                    padding: "28px",
-                    background: "#fff",
-                    boxShadow: "0 4px 20px rgba(91,13,31,0.08)",
-                }}
-            >
-                <h2 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "22px", fontWeight: 700, marginBottom: "16px", color: "var(--primary)" }}>
+            {/* Meetings card */}
+            <div style={{
+                borderRadius: "14px",
+                padding: "28px",
+                background: "var(--surface)",
+                boxShadow: "0 1px 3px rgba(91,13,31,0.04), 0 4px 20px rgba(91,13,31,0.06)",
+                border: "1px solid var(--border-light)",
+            }}>
+                <h2 style={{
+                    fontFamily: "var(--font-lora, Georgia, serif)",
+                    fontSize: "20px",
+                    fontWeight: 600,
+                    marginBottom: "20px",
+                    color: "var(--foreground)",
+                }}>
                     Upcoming meetings
                 </h2>
                 {actionMessage && (
-                    <div style={{ color: "var(--primary)", marginBottom: "12px" }}>{actionMessage}</div>
+                    <div style={{ color: "var(--primary)", fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>{actionMessage}</div>
                 )}
                 {appointments.length === 0 ? (
-                    <p style={{ color: "#666" }}>No upcoming meetings yet.</p>
+                    <div style={{
+                        padding: "32px 20px",
+                        textAlign: "center",
+                        color: "var(--muted)",
+                        background: "var(--surface-warm)",
+                        borderRadius: "10px",
+                    }}>
+                        <p style={{ fontSize: "15px" }}>No upcoming meetings yet.</p>
+                    </div>
                 ) : (
-                    <ul style={{ listStyle: "none", padding: 0 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                         {appointments.map((appointment) => (
-                            <li
+                            <div
                                 key={appointment.id}
                                 style={{
-                                    border: "2px solid #f0ece6",
+                                    border: "1px solid var(--border-light)",
                                     borderRadius: "10px",
                                     padding: "16px 20px",
-                                    borderLeft: "3px solid var(--accent)",
-                                    marginBottom: "10px",
+                                    background: "var(--surface)",
                                 }}
                             >
-                                <div style={{ fontSize: '16px', fontWeight: 700 }}>
-                                    {appointment.status === "CANCELLED" ? (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#fef2f2', color: 'var(--danger)', marginRight: '8px' }}>Cancelled</span>
-                                    ) : appointment.status === "COMPLETED" ? (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f0fdf4', color: 'var(--success)', marginRight: '8px' }}>Completed</span>
-                                    ) : appointment.status === "CONFIRMED" ? (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: 'var(--accent-soft)', color: 'var(--primary)', marginRight: '8px' }}>Confirmed</span>
-                                    ) : (
-                                        <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', background: '#f5f5f5', color: 'var(--muted)', marginRight: '8px' }}>Pending</span>
-                                    )}
-                                    Day {appointment.day} • {appointment.period === "BREAK" ? "Break" : `Period ${appointment.period}`}
+                                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
+                                    <StatusBadge status={appointment.status} />
+                                    <span style={{ fontSize: "15px", fontWeight: 600 }}>
+                                        Day {appointment.day} &middot; {appointment.period === "BREAK" ? "Break" : `Period ${appointment.period}`}
+                                    </span>
                                 </div>
                                 {appointment.meetingDate && (
-                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginBottom: "4px" }}>
                                         {appointment.meetingDate}
-                                        {appointment.meetingTime ? ` • ${appointment.meetingTime}` : ""}
+                                        {appointment.meetingTime ? ` \u00b7 ${appointment.meetingTime}` : ""}
                                     </div>
                                 )}
-                                <div style={{ color: "#555", marginTop: "4px" }}>
-                                    Student: {appointment.studentName} ({appointment.studentEmail})
+                                <div style={{ color: "var(--foreground)", fontSize: "14px", marginBottom: "2px" }}>
+                                    {appointment.studentName}
+                                    <span style={{ color: "var(--muted)", fontSize: "13px" }}> ({appointment.studentEmail})</span>
                                 </div>
                                 {appointment.room && (
-                                    <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
-                                        Room: {appointment.room}
+                                    <div style={{ color: "var(--muted)", fontSize: "13px" }}>
+                                        Room {appointment.room}
                                     </div>
                                 )}
                                 {appointment.studentNote && (
-                                    <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "4px" }}>
                                         Student note: {appointment.studentNote}
                                     </div>
                                 )}
                                 {appointment.teacherNote && (
-                                    <div style={{ color: "#555", fontSize: "13px", marginTop: "4px" }}>
+                                    <div style={{ color: "var(--muted)", fontSize: "13px", marginTop: "2px" }}>
                                         Your note: {appointment.teacherNote}
                                     </div>
                                 )}
+                                {/* Action buttons by status */}
                                 {appointment.status === "CANCELLED" ? (
                                     <button
                                         type="button"
-                                        onClick={() =>
-                                            acknowledgeAppointment(appointment.id, "Cancelled booking acknowledged.")
-                                        }
+                                        className="btn-outline"
+                                        onClick={() => acknowledgeAppointment(appointment.id, "Cancelled booking acknowledged.")}
                                         style={{
-                                            marginTop: "8px",
-                                            padding: "10px 18px",
+                                            marginTop: "10px",
+                                            padding: "8px 16px",
                                             borderRadius: "6px",
-                                            border: "2px solid var(--primary)",
-                                            background: "#fff",
-                                            color: "var(--primary)",
+                                            border: "1px solid var(--border)",
+                                            background: "var(--surface)",
+                                            color: "var(--foreground)",
                                             cursor: "pointer",
-                                            fontWeight: 700,
+                                            fontWeight: 600,
                                             fontSize: "13px",
-                                            textTransform: "uppercase",
-                                            letterSpacing: "0.04em",
                                         }}
                                     >
                                         Acknowledge
@@ -744,21 +844,18 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                     appointment.completedBy !== "TEACHER" ? (
                                         <button
                                             type="button"
-                                            onClick={() =>
-                                                acknowledgeAppointment(appointment.id, "Completed meeting acknowledged.")
-                                            }
+                                            className="btn-outline"
+                                            onClick={() => acknowledgeAppointment(appointment.id, "Completed meeting acknowledged.")}
                                             style={{
-                                                marginTop: "8px",
-                                                padding: "10px 18px",
+                                                marginTop: "10px",
+                                                padding: "8px 16px",
                                                 borderRadius: "6px",
-                                                border: "2px solid var(--primary)",
-                                                background: "#fff",
-                                                color: "var(--primary)",
+                                                border: "1px solid var(--border)",
+                                                background: "var(--surface)",
+                                                color: "var(--foreground)",
                                                 cursor: "pointer",
-                                                fontWeight: 700,
+                                                fontWeight: 600,
                                                 fontSize: "13px",
-                                                textTransform: "uppercase",
-                                                letterSpacing: "0.04em",
                                             }}
                                         >
                                             Acknowledge
@@ -767,24 +864,24 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                 ) : appointment.status === "CONFIRMED" ? (
                                     <button
                                         type="button"
+                                        className="btn-fill"
                                         onClick={() => completeAppointment(appointment.id)}
                                         style={{
-                                            marginTop: "8px",
-                                            padding: "10px 18px",
+                                            marginTop: "10px",
+                                            padding: "8px 16px",
                                             borderRadius: "6px",
-                                            border: "2px solid var(--primary)",
+                                            border: "none",
                                             background: "var(--primary)",
                                             color: "#fff",
                                             cursor: "pointer",
-                                            fontWeight: 700,
+                                            fontWeight: 600,
                                             fontSize: "13px",
-                                            textTransform: "uppercase",
-                                            letterSpacing: "0.04em",
                                         }}
                                     >
                                         Mark as completed
                                     </button>
                                 ) : null}
+                                {/* Pending: show accept/decline with room input */}
                                 {appointment.status === "PENDING" && (
                                     <div style={{ marginTop: "12px", display: "grid", gap: "8px" }}>
                                         <input
@@ -793,56 +890,56 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                             value={responses[appointment.id]?.room ?? ""}
                                             onChange={(event) => updateResponse(appointment.id, "room", event.target.value)}
                                             style={{
-                                                padding: "12px 14px",
+                                                padding: "10px 14px",
                                                 borderRadius: "8px",
-                                                border: "2px solid var(--border)",
+                                                border: "1px solid var(--border)",
+                                                fontSize: "14px",
                                             }}
                                         />
                                         <textarea
                                             placeholder="Note (optional)"
                                             value={responses[appointment.id]?.note ?? ""}
                                             onChange={(event) => updateResponse(appointment.id, "note", event.target.value)}
-                                            rows={3}
+                                            rows={2}
                                             style={{
-                                                padding: "12px 14px",
+                                                padding: "10px 14px",
                                                 borderRadius: "8px",
-                                                border: "2px solid var(--border)",
+                                                border: "1px solid var(--border)",
                                                 resize: "vertical",
+                                                fontSize: "14px",
                                             }}
                                         />
-                                        <div style={{ display: "flex", gap: "10px" }}>
+                                        <div style={{ display: "flex", gap: "8px" }}>
                                             <button
                                                 type="button"
+                                                className="btn-fill"
                                                 onClick={() => handleDecision(appointment.id, "confirm")}
                                                 style={{
-                                                    padding: "10px 18px",
+                                                    padding: "8px 16px",
                                                     borderRadius: "6px",
-                                                    border: "2px solid var(--primary)",
+                                                    border: "none",
                                                     background: "var(--primary)",
                                                     color: "#fff",
                                                     cursor: "pointer",
-                                                    fontWeight: 700,
+                                                    fontWeight: 600,
                                                     fontSize: "13px",
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: "0.04em",
                                                 }}
                                             >
                                                 Accept
                                             </button>
                                             <button
                                                 type="button"
+                                                className="btn-danger-outline"
                                                 onClick={() => handleDecision(appointment.id, "decline")}
                                                 style={{
-                                                    padding: "10px 18px",
+                                                    padding: "8px 16px",
                                                     borderRadius: "6px",
-                                                    border: "2px solid var(--danger)",
-                                                    background: "#fff",
+                                                    border: "1px solid var(--danger)",
+                                                    background: "var(--surface)",
                                                     color: "var(--danger)",
                                                     cursor: "pointer",
-                                                    fontWeight: 700,
+                                                    fontWeight: 600,
                                                     fontSize: "13px",
-                                                    textTransform: "uppercase",
-                                                    letterSpacing: "0.04em",
                                                 }}
                                             >
                                                 Decline
@@ -850,9 +947,9 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                                         </div>
                                     </div>
                                 )}
-                            </li>
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
             </div>
         </div>
@@ -861,25 +958,30 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
 
 function AdminDashboard({ firstName }: { firstName: string }) {
     return (
-        <div style={{ padding: "40px" }}>
-            <h1 style={{ fontFamily: 'var(--font-lora, Georgia, serif)', fontSize: "34px", fontWeight: 700, marginBottom: "12px", color: "var(--primary)" }}>
+        <div style={{ padding: "48px 40px" }}>
+            <h1 style={{
+                fontFamily: "var(--font-lora, Georgia, serif)",
+                fontSize: "36px",
+                fontWeight: 700,
+                color: "var(--primary)",
+                marginBottom: "4px",
+                letterSpacing: "-0.02em",
+            }}>
                 {getGreeting()}, {firstName}
             </h1>
-            <div style={{ background: 'var(--accent)', height: '3px', width: '60px', borderRadius: '2px', marginBottom: '24px' }} />
-            <p style={{ fontSize: '16px', color: 'var(--muted)', marginBottom: '32px' }}>This is your dashboard.</p>
+            <p style={{ color: "var(--muted)", fontSize: "15px", marginBottom: "28px" }}>Admin dashboard</p>
             <Link
                 href="/users"
+                className="btn-fill"
                 style={{
                     display: "inline-block",
-                    padding: "14px 24px",
+                    padding: "12px 20px",
                     backgroundColor: "var(--primary)",
                     color: "white",
-                    borderRadius: "10px",
+                    borderRadius: "8px",
                     textDecoration: "none",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.05em",
-                    fontWeight: 700,
-                    fontSize: "15px",
+                    fontWeight: 600,
+                    fontSize: "14px",
                 }}
             >
                 Manage users

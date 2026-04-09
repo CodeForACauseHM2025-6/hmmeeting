@@ -23,86 +23,76 @@ export default function LoginClient({ error }: LoginClientProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "var(--background)" }}>
-      <div
-        style={{
-          borderRadius: "16px",
-          overflow: "hidden",
-          boxShadow: "0 12px 40px rgba(91,13,31,0.12)",
-          border: "2px solid var(--primary)",
-        }}
-      >
-        <div style={{ background: "var(--primary)", height: "4px" }} />
-        <div
-          style={{
-            background: "var(--surface)",
-            padding: "40px 36px",
-            minWidth: "380px",
-          }}
-        >
-          <h1
-            style={{
-              color: "var(--primary)",
-              fontFamily: "var(--font-lora, Georgia, serif)",
-              fontSize: "32px",
-              fontWeight: 700,
-              textAlign: "center",
-              marginBottom: "4px",
-            }}
-          >
-            Welcome
+    <div style={{
+      minHeight: "100dvh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "var(--background)",
+      padding: "24px",
+    }}>
+      <div style={{ width: "100%", maxWidth: "420px" }}>
+        {/* School identity mark */}
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          <h1 style={{
+            fontFamily: "var(--font-lora, Georgia, serif)",
+            fontSize: "28px",
+            fontWeight: 700,
+            color: "var(--primary)",
+            letterSpacing: "-0.02em",
+            marginBottom: "6px",
+          }}>
+            Horace Mann
           </h1>
-          <p
-            style={{
-              color: "var(--muted)",
-              fontSize: "14px",
-              letterSpacing: "0.03em",
-              marginBottom: "28px",
-              textAlign: "center",
-            }}
-          >
-            Horace Mann Meeting Scheduler
+          <p style={{
+            color: "var(--muted)",
+            fontSize: "14px",
+            fontWeight: 500,
+            letterSpacing: "0.02em",
+          }}>
+            Meeting Scheduler
           </p>
+        </div>
+
+        {/* Login card */}
+        <div style={{
+          background: "var(--surface)",
+          borderRadius: "16px",
+          padding: "36px 32px",
+          boxShadow: "0 1px 3px rgba(91,13,31,0.06), 0 8px 32px rgba(91,13,31,0.08)",
+          border: "1px solid var(--border-light)",
+        }}>
           {errorMessage && (
-            <div
-              style={{
-                background: "#fef2f2",
-                border: "2px solid var(--danger)",
-                borderRadius: "8px",
-                padding: "12px",
-                fontWeight: 600,
-                color: "var(--danger)",
-                textAlign: "center",
-                marginBottom: "16px",
-              }}
-            >
+            <div style={{
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: "10px",
+              padding: "12px 16px",
+              fontWeight: 600,
+              color: "var(--danger)",
+              fontSize: "14px",
+              marginBottom: "20px",
+            }}>
               {errorMessage}
             </div>
           )}
           <button
+            className="btn-outline"
             onClick={handleGoogleSignIn}
             style={{
               width: "100%",
               padding: "14px 20px",
               borderRadius: "10px",
-              border: "1px solid #dadce0",
+              border: "1px solid var(--border)",
               backgroundColor: "#fff",
-              color: "#3c4043",
+              color: "var(--foreground)",
               fontSize: "15px",
-              fontWeight: 600,
+              fontWeight: 500,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: "8px",
-              boxShadow: "0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15)",
-              transition: "box-shadow 0.2s",
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.boxShadow = "0 1px 3px 0 rgba(60,64,67,.3), 0 4px 8px 3px rgba(60,64,67,.15)";
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.boxShadow = "0 1px 2px 0 rgba(60,64,67,.3), 0 1px 3px 1px rgba(60,64,67,.15)";
+              gap: "10px",
             }}
           >
             <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
@@ -117,24 +107,22 @@ export default function LoginClient({ error }: LoginClientProps) {
           </button>
 
           {isDev && (
-            <div style={{ marginTop: "20px" }}>
-              <div
-                style={{
-                  fontSize: "13px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
-                  color: "var(--muted)",
-                  fontWeight: 600,
-                  marginBottom: "8px",
-                }}
-              >
+            <div style={{ marginTop: "24px" }}>
+              <div style={{
+                fontSize: "12px",
+                fontWeight: 500,
+                color: "var(--muted)",
+                marginBottom: "10px",
+                letterSpacing: "0.03em",
+              }}>
                 Dev logins
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                 {devUsers.map((user) => (
                   <button
                     key={user.email}
                     type="button"
+                    className="card-hover"
                     onClick={() =>
                       signIn("dev-credentials", {
                         email: user.email,
@@ -144,14 +132,14 @@ export default function LoginClient({ error }: LoginClientProps) {
                     style={{
                       padding: "12px 14px",
                       borderRadius: "10px",
-                      border: "2px solid var(--border)",
-                      background: "#fff",
+                      border: "1px solid var(--border-light)",
+                      background: "var(--surface-warm)",
                       cursor: "pointer",
                       textAlign: "left",
                     }}
                   >
-                    {user.fullName}
-                    <div style={{ fontSize: "12px", color: "#666" }}>{user.email}</div>
+                    <span style={{ fontWeight: 600, fontSize: "14px" }}>{user.fullName}</span>
+                    <div style={{ fontSize: "12px", color: "var(--muted)", marginTop: "2px" }}>{user.email}</div>
                   </button>
                 ))}
               </div>
