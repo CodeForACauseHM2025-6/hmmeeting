@@ -79,14 +79,16 @@ function meetingDetailsBlock(
   studentName: string,
   displayDate: string,
   displayTime: string,
-  studentNote?: string | null
+  studentNote?: string | null,
+  options: { showNote?: boolean } = {}
 ) {
+  const showNote = options.showNote ?? false;
   return `
     <div class="details">
       <p><strong>Student:</strong> ${escapeHtml(studentName)}</p>
       <p><strong>Date:</strong> ${escapeHtml(displayDate)}</p>
       <p><strong>Time:</strong> ${escapeHtml(displayTime)}</p>
-      ${studentNote ? `<p><strong>Reason:</strong> ${escapeHtml(studentNote)}</p>` : ""}
+      ${showNote && studentNote ? `<p><strong>Reason:</strong> ${escapeHtml(studentNote)}</p>` : ""}
     </div>
   `;
 }
@@ -213,24 +215,29 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const contentType = request.headers.get("content-type") || "";
 
-  let token: string | null = null;
-  let action: string | null = null;
-  let room = "";
-  let note = "";
-
-  if (contentType.includes("application/x-www-form-urlencoded")) {
-    const formData = await request.formData();
-    token = formData.get("token") as string | null;
-    action = formData.get("action") as string | null;
-    room = ((formData.get("room") as string) || "").trim().slice(0, 100);
-    note = ((formData.get("note") as string) || "").trim().slice(0, 1000);
-  } else {
-    const body = await request.json().catch(() => null);
-    token = body?.token ?? null;
-    action = body?.action ?? null;
-    room = (body?.room ?? "").trim().slice(0, 100);
-    note = (body?.note ?? "").trim().slice(0, 1000);
+  // Only accept the standard HTML form-post content types. Rejecting JSON
+  // here narrows the cross-origin attack surface: a CORS-restricted
+  // browser can't issue a form-post with arbitrary body, so the only way
+  // to invoke this is from a same-origin form (the one we render) or
+  // from a non-browser client (which would have to obtain a token first).
+  if (
+    !contentType.includes("application/x-www-form-urlencoded") &&
+    !contentType.includes("multipart/form-data")
+  ) {
+    return new Response(
+      htmlPage("Error", `
+        <h2 class="error">Invalid Request</h2>
+        <p>This form was submitted with an unsupported content type.</p>
+      `),
+      { headers: { "Content-Type": "text/html" }, status: 415 }
+    );
   }
+
+  const formData = await request.formData();
+  const token = (formData.get("token") as string | null);
+  const action = (formData.get("action") as string | null);
+  const room = ((formData.get("room") as string) || "").trim().slice(0, 100);
+  const note = ((formData.get("note") as string) || "").trim().slice(0, 1000);
 
   if (!token || !action || !["accept", "decline"].includes(action)) {
     return new Response(
