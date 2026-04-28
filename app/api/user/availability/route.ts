@@ -58,31 +58,19 @@ export async function GET(request: Request) {
       return new Response("Teacher not found", { status: 404 });
     }
 
+    // For cross-user availability lookups (a student viewing a teacher's
+    // schedule before booking), return the raw availability without
+    // filtering by booked appointments. Filtering would let any
+    // authenticated user infer which periods a teacher has private
+    // meetings booked in. The booking POST atomically rejects conflicts.
     const availability = await prisma.availability.findMany({
       where: { teacherId },
       orderBy: [{ day: "asc" }, { period: "asc" }],
     });
 
-    const activeAppointments = await prisma.appointment.findMany({
-      where: {
-        teacherId,
-        status: { in: ["PENDING", "CONFIRMED"] },
-      },
-      select: { day: true, period: true },
-    });
-
-    const blockedSet = new Set(
-      activeAppointments.map((appointment) => `${appointment.day}-${appointment.period}`)
-    );
-
-    // Office hours slots remain visible even when booked (multiple students allowed)
-    const filteredAvailability = availability.filter(
-      (slot) => slot.type === "OFFICE_HOURS" || !blockedSet.has(`${slot.day}-${slot.period}`)
-    );
-
     return Response.json({
       room: teacher.room ?? null,
-      slots: filteredAvailability.map((slot) => ({
+      slots: availability.map((slot) => ({
         id: slot.id,
         day: slot.day,
         period: slot.period,
