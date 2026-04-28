@@ -1,5 +1,21 @@
 import { Resend } from "resend";
 
+function escapeHtml(value: string | null | undefined): string {
+  if (value == null) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+// Resend's `subject` is plain text, but services may render it; strip CR/LF
+// to defeat header-injection attempts and trim length defensively.
+function escapeSubject(value: string): string {
+  return value.replace(/[\r\n]+/g, " ").slice(0, 200);
+}
+
 type MeetingEmailPayload = {
   studentName: string;
   studentEmail: string;
@@ -41,8 +57,8 @@ function meetingDetailsHtml(displayDate: string, displayTime: string, extra?: st
   return `
     <div style="background-color: #f5f5f5; padding: 15px; border-radius: 8px; margin: 20px 0;">
       ${extra || ""}
-      <p style="margin: 5px 0;"><strong>Date:</strong> ${displayDate}</p>
-      <p style="margin: 5px 0;"><strong>Time:</strong> ${displayTime}</p>
+      <p style="margin: 5px 0;"><strong>Date:</strong> ${escapeHtml(displayDate)}</p>
+      <p style="margin: 5px 0;"><strong>Time:</strong> ${escapeHtml(displayTime)}</p>
     </div>
   `;
 }
@@ -71,13 +87,13 @@ export async function sendMeetingEmails(payload: MeetingEmailPayload) {
   const confirmation = await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(studentEmail)],
-    subject: `Meeting requested with ${teacherName}`,
+    subject: escapeSubject(`Meeting requested with ${teacherName}`),
     html: emailWrapper(`
       <h2 style="color: #5b0d1f;">Meeting Request Sent</h2>
-      <p>Hi ${studentName},</p>
-      <p>Your meeting request has been sent to <strong>${teacherName}</strong>. You'll receive an email when they respond.</p>
+      <p>Hi ${escapeHtml(studentName)},</p>
+      <p>Your meeting request has been sent to <strong>${escapeHtml(teacherName)}</strong>. You'll receive an email when they respond.</p>
       ${meetingDetailsHtml(displayDate, displayTime, `
-        <p style="margin: 5px 0;"><strong>With:</strong> ${teacherName}</p>
+        <p style="margin: 5px 0;"><strong>With:</strong> ${escapeHtml(teacherName)}</p>
       `)}
       ${emailFooter()}
     `),
@@ -86,14 +102,16 @@ export async function sendMeetingEmails(payload: MeetingEmailPayload) {
   const appUrl = getAppUrl();
   let actionButtonsHtml = "";
   if (emailToken) {
-    const acceptUrl = `${appUrl}/api/email-action?token=${emailToken}&action=accept`;
-    const declineUrl = `${appUrl}/api/email-action?token=${emailToken}&action=decline`;
+    // emailToken is server-generated (crypto.randomUUID), but URL-encode defensively.
+    const tokenParam = encodeURIComponent(emailToken);
+    const acceptUrl = `${appUrl}/api/email-action?token=${tokenParam}&action=accept`;
+    const declineUrl = `${appUrl}/api/email-action?token=${tokenParam}&action=decline`;
     actionButtonsHtml = `
       <div style="margin: 25px 0; text-align: center;">
-        <a href="${acceptUrl}" style="display: inline-block; padding: 12px 28px; background-color: #5b0d1f; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; margin-right: 12px;">
+        <a href="${escapeHtml(acceptUrl)}" style="display: inline-block; padding: 12px 28px; background-color: #5b0d1f; color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; margin-right: 12px;">
           Accept Meeting
         </a>
-        <a href="${declineUrl}" style="display: inline-block; padding: 12px 28px; background-color: #ffffff; color: #5b0d1f; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; border: 2px solid #5b0d1f;">
+        <a href="${escapeHtml(declineUrl)}" style="display: inline-block; padding: 12px 28px; background-color: #ffffff; color: #5b0d1f; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; border: 2px solid #5b0d1f;">
           Decline Meeting
         </a>
       </div>
@@ -101,7 +119,7 @@ export async function sendMeetingEmails(payload: MeetingEmailPayload) {
         You'll need to provide a room number to accept.
       </p>
       <p style="color: #888; font-size: 12px; text-align: center;">
-        Or <a href="${appUrl}/dashboard" style="color: #5b0d1f;">log in to the app</a> to manage this meeting.
+        Or <a href="${escapeHtml(`${appUrl}/dashboard`)}" style="color: #5b0d1f;">log in to the app</a> to manage this meeting.
       </p>
     `;
   }
@@ -109,14 +127,14 @@ export async function sendMeetingEmails(payload: MeetingEmailPayload) {
   const notification = await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(teacherEmail)],
-    subject: `${studentName} requested a meeting`,
+    subject: escapeSubject(`${studentName} requested a meeting`),
     html: emailWrapper(`
       <h2 style="color: #5b0d1f;">New Meeting Request</h2>
-      <p>Hi ${teacherName},</p>
-      <p><strong>${studentName}</strong> would like to meet with you.</p>
+      <p>Hi ${escapeHtml(teacherName)},</p>
+      <p><strong>${escapeHtml(studentName)}</strong> would like to meet with you.</p>
       ${meetingDetailsHtml(displayDate, displayTime, `
-        <p style="margin: 5px 0;"><strong>From:</strong> ${studentName}</p>
-        ${studentNote ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${studentNote}</p>` : ""}
+        <p style="margin: 5px 0;"><strong>From:</strong> ${escapeHtml(studentName)}</p>
+        ${studentNote ? `<p style="margin: 5px 0;"><strong>Reason:</strong> ${escapeHtml(studentNote)}</p>` : ""}
       `)}
       ${actionButtonsHtml}
       ${emailFooter()}
@@ -146,15 +164,15 @@ export async function sendStudentConfirmationEmail(payload: {
   await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(studentEmail)],
-    subject: `Meeting confirmed with ${teacherName}`,
+    subject: escapeSubject(`Meeting confirmed with ${teacherName}`),
     html: emailWrapper(`
       <h2 style="color: #2e7d32;">Meeting Confirmed!</h2>
-      <p>Hi ${studentName},</p>
-      <p><strong>${teacherName}</strong> has accepted your meeting request.</p>
+      <p>Hi ${escapeHtml(studentName)},</p>
+      <p><strong>${escapeHtml(teacherName)}</strong> has accepted your meeting request.</p>
       ${meetingDetailsHtml(displayDate, displayTime, `
-        <p style="margin: 5px 0;"><strong>With:</strong> ${teacherName}</p>
-        <p style="margin: 5px 0;"><strong>Room:</strong> ${room}</p>
-        ${teacherNote ? `<p style="margin: 5px 0;"><strong>Teacher's note:</strong> ${teacherNote}</p>` : ""}
+        <p style="margin: 5px 0;"><strong>With:</strong> ${escapeHtml(teacherName)}</p>
+        <p style="margin: 5px 0;"><strong>Room:</strong> ${escapeHtml(room)}</p>
+        ${teacherNote ? `<p style="margin: 5px 0;"><strong>Teacher's note:</strong> ${escapeHtml(teacherNote)}</p>` : ""}
       `)}
       ${emailFooter()}
     `),
@@ -180,14 +198,14 @@ export async function sendStudentDeclinedEmail(payload: {
   await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(studentEmail)],
-    subject: `Meeting declined by ${teacherName}`,
+    subject: escapeSubject(`Meeting declined by ${teacherName}`),
     html: emailWrapper(`
       <h2 style="color: #d32f2f;">Meeting Declined</h2>
-      <p>Hi ${studentName},</p>
-      <p><strong>${teacherName}</strong> has declined your meeting request.</p>
+      <p>Hi ${escapeHtml(studentName)},</p>
+      <p><strong>${escapeHtml(teacherName)}</strong> has declined your meeting request.</p>
       ${meetingDetailsHtml(displayDate, displayTime, `
-        <p style="margin: 5px 0;"><strong>With:</strong> ${teacherName}</p>
-        ${teacherNote ? `<p style="margin: 5px 0;"><strong>Teacher's note:</strong> ${teacherNote}</p>` : ""}
+        <p style="margin: 5px 0;"><strong>With:</strong> ${escapeHtml(teacherName)}</p>
+        ${teacherNote ? `<p style="margin: 5px 0;"><strong>Teacher's note:</strong> ${escapeHtml(teacherNote)}</p>` : ""}
       `)}
       <p>You can try requesting a different time slot.</p>
       ${emailFooter()}
@@ -214,11 +232,11 @@ export async function sendCancellationEmail(payload: {
   await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(recipientEmail)],
-    subject: `Meeting cancelled by ${otherPartyName}`,
+    subject: escapeSubject(`Meeting cancelled by ${otherPartyName}`),
     html: emailWrapper(`
       <h2 style="color: #d32f2f;">Meeting Cancelled</h2>
-      <p>Hi ${recipientName},</p>
-      <p><strong>${otherPartyName}</strong> has cancelled the meeting.</p>
+      <p>Hi ${escapeHtml(recipientName)},</p>
+      <p><strong>${escapeHtml(otherPartyName)}</strong> has cancelled the meeting.</p>
       ${meetingDetailsHtml(displayDate, displayTime)}
       ${emailFooter()}
     `),
@@ -245,15 +263,15 @@ export async function sendTeacherConfirmationEmail(payload: {
   await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(teacherEmail)],
-    subject: `Meeting confirmed with ${studentName}`,
+    subject: escapeSubject(`Meeting confirmed with ${studentName}`),
     html: emailWrapper(`
       <h2 style="color: #5b0d1f;">Meeting Confirmed!</h2>
-      <p>Hi ${teacherName},</p>
-      <p>You've accepted the meeting with <strong>${studentName}</strong>.</p>
+      <p>Hi ${escapeHtml(teacherName)},</p>
+      <p>You've accepted the meeting with <strong>${escapeHtml(studentName)}</strong>.</p>
       ${meetingDetailsHtml(displayDate, displayTime, `
-        <p style="margin: 5px 0;"><strong>Student:</strong> ${studentName}</p>
-        <p style="margin: 5px 0;"><strong>Room:</strong> ${room}</p>
-        ${teacherNote ? `<p style="margin: 5px 0;"><strong>Your note:</strong> ${teacherNote}</p>` : ""}
+        <p style="margin: 5px 0;"><strong>Student:</strong> ${escapeHtml(studentName)}</p>
+        <p style="margin: 5px 0;"><strong>Room:</strong> ${escapeHtml(room)}</p>
+        ${teacherNote ? `<p style="margin: 5px 0;"><strong>Your note:</strong> ${escapeHtml(teacherNote)}</p>` : ""}
       `)}
       ${emailFooter()}
     `),
@@ -282,15 +300,15 @@ export async function sendOfficeHoursNotificationEmail(payload: {
   await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(teacherEmail)],
-    subject: `${studentName} booked your office hours`,
+    subject: escapeSubject(`${studentName} booked your office hours`),
     html: emailWrapper(`
       <h2 style="color: #5b0d1f;">Office Hours Booking</h2>
-      <p>Hi ${teacherName},</p>
-      <p><strong>${studentName}</strong> has booked your office hours.</p>
+      <p>Hi ${escapeHtml(teacherName)},</p>
+      <p><strong>${escapeHtml(studentName)}</strong> has booked your office hours.</p>
       ${meetingDetailsHtml(displayDate, displayTime, `
-        <p style="margin: 5px 0;"><strong>Student:</strong> ${studentName}</p>
-        <p style="margin: 5px 0;"><strong>Room:</strong> ${room}</p>
-        ${studentNote ? `<p style="margin: 5px 0;"><strong>Note:</strong> ${studentNote}</p>` : ""}
+        <p style="margin: 5px 0;"><strong>Student:</strong> ${escapeHtml(studentName)}</p>
+        <p style="margin: 5px 0;"><strong>Room:</strong> ${escapeHtml(room)}</p>
+        ${studentNote ? `<p style="margin: 5px 0;"><strong>Note:</strong> ${escapeHtml(studentNote)}</p>` : ""}
       `)}
       <p>No action is required. The booking is auto-confirmed.</p>
       ${emailFooter()}
@@ -301,14 +319,14 @@ export async function sendOfficeHoursNotificationEmail(payload: {
   await resend.emails.send({
     from: FROM_ADDRESS,
     to: [resolveRecipient(studentEmail)],
-    subject: `Office hours confirmed with ${teacherName}`,
+    subject: escapeSubject(`Office hours confirmed with ${teacherName}`),
     html: emailWrapper(`
       <h2 style="color: #5b0d1f;">Office Hours Confirmed!</h2>
-      <p>Hi ${studentName},</p>
-      <p>Your office hours visit with <strong>${teacherName}</strong> is confirmed.</p>
+      <p>Hi ${escapeHtml(studentName)},</p>
+      <p>Your office hours visit with <strong>${escapeHtml(teacherName)}</strong> is confirmed.</p>
       ${meetingDetailsHtml(displayDate, displayTime, `
-        <p style="margin: 5px 0;"><strong>With:</strong> ${teacherName}</p>
-        <p style="margin: 5px 0;"><strong>Room:</strong> ${room}</p>
+        <p style="margin: 5px 0;"><strong>With:</strong> ${escapeHtml(teacherName)}</p>
+        <p style="margin: 5px 0;"><strong>Room:</strong> ${escapeHtml(room)}</p>
       `)}
       ${emailFooter()}
     `),

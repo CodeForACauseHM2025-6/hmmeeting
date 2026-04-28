@@ -1,5 +1,5 @@
 // src/app/api/user/information/route.ts
-// API endpoint to get the user's information. 
+// API endpoint to get the user's information.
 
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
@@ -14,6 +14,9 @@ function nameFromEmail(email: string): string {
         .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// fullName is set from Google OAuth at sign-in (auth.ts) and is never
+// user-overridable here — letting users set arbitrary names enables
+// HTML/phishing payloads in emails sent to other users.
 type FreePeriodInput = {
     day: number;
     period: PeriodValue;
@@ -72,12 +75,25 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json().catch(() => null);
-    const fullName = (body?.fullName?.trim()) || nameFromEmail(session.user.email);
     const freePeriods = Array.isArray(body?.freePeriods) ? (body?.freePeriods as FreePeriodInput[]) : [];
-    const room = typeof body?.room === "string" ? body.room.trim() : undefined;
+    const rawRoom = typeof body?.room === "string" ? body.room.trim() : undefined;
+    // Cap room length to match the booking endpoint's limit and prevent
+    // unbounded text being stored.
+    const room = rawRoom !== undefined ? rawRoom.slice(0, 100) : undefined;
     const resolvedRole: RoleValue = await resolveRole(session.user.email);
 
     const role: RoleValue = resolvedRole;
+
+    // Determine fullName from the Google session or DB record — never from
+    // the request body. (Falls back to a derived name if no Google name yet.)
+    const existing = await prisma.user.findUnique({
+        where: { email: session.user.email },
+        select: { fullName: true },
+    });
+    const fullName =
+        session.user.name?.trim() ||
+        existing?.fullName ||
+        nameFromEmail(session.user.email);
 
     const user = await prisma.user.upsert({
         where: { email: session.user.email },
