@@ -49,10 +49,12 @@ load_env() {
 # ----------------------------------------------------------
 # Helper: Start PM2 fresh (delete old process if exists, then start)
 # PM2 only captures env vars at start time, not on restart.
+# Binds Node to loopback only — public traffic must come through nginx.
 # ----------------------------------------------------------
 pm2_fresh_start() {
     pm2 delete hmmeeting 2>/dev/null || true
-    pm2 start npm --name "hmmeeting" -- start
+    NODE_ENV=production HOSTNAME=127.0.0.1 TRUST_PROXY=true \
+        pm2 start npm --name "hmmeeting" -- start
     pm2 save
 }
 
@@ -79,13 +81,25 @@ cmd_setup() {
         log "PM2 already installed."
     fi
 
+    log "Installing nginx + certbot (TLS terminator)..."
+    sudo apt-get install -y nginx certbot python3-certbot-nginx
+
     log "Configuring firewall (UFW)..."
     sudo ufw allow OpenSSH
-    sudo ufw allow 3000/tcp
+    sudo ufw allow 'Nginx Full'
+    # Explicitly close 3000 — Node binds to loopback, public traffic goes
+    # through nginx on 80/443.
+    sudo ufw delete allow 3000/tcp 2>/dev/null || true
+    sudo ufw deny 3000/tcp
     sudo ufw --force enable
 
-    log "Setup complete! Now run:"
-    echo "  ./deploy.sh init"
+    log "Setup complete!"
+    log "Next steps:"
+    echo "  1. Point your DNS A record at this server."
+    echo "  2. Copy nginx.conf to /etc/nginx/sites-available/hmmeeting,"
+    echo "     replace YOUR_DOMAIN with your hostname, and link into sites-enabled."
+    echo "  3. Run: sudo certbot --nginx -d your.domain"
+    echo "  4. Then: ./deploy.sh init"
 }
 
 # ----------------------------------------------------------
@@ -128,6 +142,9 @@ cmd_init() {
     fi
     if [ -z "$APP_URL" ] || echo "$APP_URL" | grep -q "YOUR_"; then
         err "APP_URL not set properly in .env.production."
+    fi
+    if ! echo "$APP_URL" | grep -qE '^https://'; then
+        err "APP_URL must start with https:// (got: $APP_URL). Provision TLS via certbot first."
     fi
 
     log "App URL: $APP_URL"
