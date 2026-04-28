@@ -46,12 +46,18 @@ export const {
   ],
   secret: process.env.AUTH_SECRET,
   callbacks: {
-    async signIn({ user, account }) {
+    async signIn({ user, account, profile }) {
       if (account?.provider === "dev-credentials") {
         return process.env.NODE_ENV !== "production";
       }
       // Only allow horacemann.org emails
       if (!user?.email?.endsWith("@horacemann.org")) return false;
+      // Defense-in-depth: require Google to have verified the email.
+      // Workspace accounts always have this flag set; personal accounts
+      // could in theory present an unverified address.
+      if (account?.provider === "google" && profile && profile.email_verified !== true) {
+        return false;
+      }
 
       // Auto-create/update DB user with the Google profile name
       const googleName = user.name || "";
