@@ -420,7 +420,7 @@ export async function POST(request: Request) {
         room: teacher.room || "TBD",
       });
     } catch (error) {
-      console.error("Failed to send office hours notification:", error);
+      console.error("Failed to send office hours notification", { name: (error as Error)?.name });
     }
 
     return Response.json(created);
@@ -455,7 +455,7 @@ export async function POST(request: Request) {
       studentNote,
     });
   } catch (error) {
-    console.error("Failed to send meeting emails:", error);
+    console.error("Failed to send meeting emails", { name: (error as Error)?.name });
   }
 
   return Response.json(created);
@@ -544,7 +544,7 @@ export async function PATCH(request: Request) {
         });
       }
     } catch (err) {
-      console.error("Failed to send student confirmation email:", err);
+      console.error("Failed to send student confirmation email", { name: (err as Error)?.name });
     }
 
     return Response.json(updated);
@@ -592,7 +592,7 @@ export async function PATCH(request: Request) {
         });
       }
     } catch (err) {
-      console.error("Failed to send student declined email:", err);
+      console.error("Failed to send student declined email", { name: (err as Error)?.name });
     }
 
     return Response.json(updated);
@@ -689,7 +689,7 @@ export async function PATCH(request: Request) {
         }
       }
     } catch (err) {
-      console.error("Failed to send cancellation email:", err);
+      console.error("Failed to send cancellation email", { name: (err as Error)?.name });
     }
 
     return Response.json(updated);

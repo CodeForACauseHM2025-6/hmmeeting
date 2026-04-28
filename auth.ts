@@ -72,7 +72,9 @@ export const {
           update: { fullName, role },
         });
       } catch (e) {
-        console.error("Failed to upsert user on sign-in:", e);
+        // Avoid logging the error object directly — Prisma errors include
+        // the (decrypted) where clause which contains user PII.
+        console.error("Failed to upsert user on sign-in", { name: (e as Error)?.name });
       }
 
       return true;

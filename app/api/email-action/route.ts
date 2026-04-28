@@ -330,7 +330,7 @@ export async function POST(request: Request) {
         teacherNote: note || null,
       });
     } catch (err) {
-      console.error("Failed to send student confirmation email:", err);
+      console.error("Failed to send student confirmation email", { name: (err as Error)?.name });
     }
 
     try {
@@ -346,7 +346,7 @@ export async function POST(request: Request) {
         teacherNote: note || null,
       });
     } catch (err) {
-      console.error("Failed to send teacher confirmation email:", err);
+      console.error("Failed to send teacher confirmation email", { name: (err as Error)?.name });
     }
 
     return new Response(
@@ -389,7 +389,7 @@ export async function POST(request: Request) {
       teacherNote: note || null,
     });
   } catch (err) {
-    console.error("Failed to send student declined email:", err);
+    console.error("Failed to send student declined email", { name: (err as Error)?.name });
   }
 
   return new Response(
