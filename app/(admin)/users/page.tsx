@@ -6,10 +6,12 @@ import { Role } from "@prisma/client";
 import { resolveRole } from "@/src/config/roles";
 import { getEffectiveWeek } from "@/src/config/schedule";
 import { ensureDevUsers } from "@/src/server/devSeed";
+import { assertSameOrigin } from "@/src/server/origin-check";
 import UserSearchTable from "./user-search-table";
 
 const ROLE_OPTIONS = ["STUDENT", "TEACHER", "ADMIN"] as const;
 const SETTINGS_ID = "global";
+const ALLOWED_EMAIL_DOMAIN = "@horacemann.org";
 
 async function requireAdmin() {
   const session = await auth();
@@ -36,6 +38,7 @@ async function requireAdmin() {
 async function upsertUserRole(formData: FormData) {
   "use server";
 
+  await assertSameOrigin();
   await requireAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -43,6 +46,12 @@ async function upsertUserRole(formData: FormData) {
   const fullNameInput = String(formData.get("fullName") ?? "").trim();
 
   if (!email || !fullNameInput || !ROLE_OPTIONS.includes(role as (typeof ROLE_OPTIONS)[number])) {
+    return;
+  }
+
+  // Sign-in is restricted to @horacemann.org accounts (auth.ts); the role
+  // table should only ever contain emails that could actually log in.
+  if (!email.endsWith(ALLOWED_EMAIL_DOMAIN)) {
     return;
   }
 
@@ -70,6 +79,7 @@ async function upsertUserRole(formData: FormData) {
 async function removeUser(formData: FormData) {
   "use server";
 
+  await assertSameOrigin();
   await requireAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -97,6 +107,7 @@ async function removeUser(formData: FormData) {
 async function clearAllSchedules() {
   "use server";
 
+  await assertSameOrigin();
   await requireAdmin();
 
   await prisma.availability.deleteMany({});
@@ -111,6 +122,7 @@ async function clearAllSchedules() {
 
 async function updateScheduleWeek(formData: FormData) {
   "use server";
+  await assertSameOrigin();
   await requireAdmin();
 
   const weekValue = String(formData.get("week") ?? "");
