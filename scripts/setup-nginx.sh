@@ -95,9 +95,11 @@ ln -sf /etc/nginx/sites-available/01-default-https /etc/nginx/sites-enabled/01-d
 # ---------------------------------------------------------------- scheduler vhost
 cat > "/etc/nginx/sites-available/$DOMAIN" <<EOF
 # scheduler.mtrokel.org -> Next.js app on 127.0.0.1:$APP_PORT
+# (http2 is declared once on the default_server above; this vhost
+# inherits it for the same ip:port — repeating it would warn.)
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
     server_name $DOMAIN;
 
     ssl_certificate     $CERT;
