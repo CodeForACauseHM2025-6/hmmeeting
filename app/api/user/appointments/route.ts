@@ -497,12 +497,16 @@ function sanitizeAppointmentForClient<T extends Record<string, unknown>>(row: T)
 
 // Helper for interactive transactions. The `$extends`-wrapped client confuses
 // the TS overload picker (it sees the array overload first), so we coerce to
-// the callback overload here. Behavior is unchanged at runtime.
+// the callback overload here. Calling through the prisma object preserves
+// `this` (which carries the engine config) — extracting `$transaction` to a
+// local var would lose that binding and blow up with `_engineConfig` undefined.
 type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0] extends (tx: infer T) => unknown ? (tx: T) => unknown : never>[0];
 function runInTransaction<T>(cb: (tx: TxClient) => Promise<T>): Promise<T> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const fn = prisma.$transaction as unknown as (cb: (tx: any) => Promise<T>) => Promise<T>;
-  return fn(cb);
+  return (prisma.$transaction as unknown as (cb: (tx: any) => Promise<T>) => Promise<T>).call(
+    prisma,
+    cb,
+  );
 }
 
 export async function PATCH(request: Request) {
@@ -643,10 +647,8 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "complete") {
-    if (appointment.status !== "CONFIRMED") {
-      return new Response("Only confirmed meetings can be completed", { status: 400 });
-    }
-
+    // Ownership check up front so a non-owner can't distinguish
+    // CONFIRMED vs PENDING (status oracle).
     const isBooker = resolvedRole === "STUDENT" || resolvedRole === "ADMIN";
     if (isBooker) {
       if (appointment.studentId !== user.id) {
@@ -659,6 +661,10 @@ export async function PATCH(request: Request) {
       }
     } else {
       return new Response("Not found", { status: 404 });
+    }
+
+    if (appointment.status !== "CONFIRMED") {
+      return new Response("Only confirmed meetings can be completed", { status: 400 });
     }
 
     const updated = await prisma.appointment.update({
