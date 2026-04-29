@@ -368,49 +368,82 @@ export async function POST(request: Request) {
     return new Response("Reason for meeting is required", { status: 400 });
   }
 
-  // For regular meetings, check teacher conflict (office hours allow multiple students)
-  if (!isOfficeHours) {
-    const teacherAppointments = await prisma.appointment.findMany({
-      where: { teacherId, day, status: { in: ["PENDING", "CONFIRMED"] } },
-    });
-
-    if (teacherAppointments.some((appointment) => appointment.period === period)) {
-      return new Response("Teacher already has an appointment at this time", { status: 409 });
-    }
-  }
-
-  // Student conflict check always applies (students can't double-book themselves)
-  const studentAppointments = await prisma.appointment.findMany({
-    where: { studentId: student.id, day, status: { in: ["PENDING", "CONFIRMED"] } },
-  });
-
-  if (studentAppointments.some((appointment) => appointment.period === period)) {
-    return new Response("You already have an appointment at this time", { status: 409 });
-  }
-
   const scheduleSettings = await getScheduleSnapshot();
   const meetingInfo = getMeetingInfoForAppointment(
     { day, period, createdAt: new Date() },
     scheduleSettings
   );
 
-  // Strip any field a client must never see (notably emailToken — see
-  // sanitizeAppointmentForClient).
-  if (isOfficeHours) {
-    // Office hours: auto-confirm, no approval needed
-    const created = await prisma.appointment.create({
+  // Both conflict checks and the create run inside one transaction so that
+  // parallel POSTs against the same slot can't all pass the check then race
+  // through create. (The DB has no unique constraint on (teacherId, day,
+  // period) — and can't, because office hours legitimately allow multiple
+  // appointments per slot — so we serialize at the application level.)
+  // The `$extends`-wrapped client confuses the TS overload picker for
+  // interactive transactions; the runtime supports it fine. Cast to silence.
+  type TxResult =
+    | { error: "teacher-conflict" | "student-conflict" }
+    | { created: { day: number; period: typeof period; teacherId: string; studentId: string; status: string; studentNote: string | null; teacherNote: string | null; room: string | null; emailToken: string | null; id: string; createdAt: Date; updatedAt: Date; completedBy: string | null; studentCancelled: boolean; studentAcknowledgedAt: Date | null; teacherAcknowledgedAt: Date | null }; isOfficeHours: true }
+    | { created: { day: number; period: typeof period; teacherId: string; studentId: string; status: string; studentNote: string | null; teacherNote: string | null; room: string | null; emailToken: string | null; id: string; createdAt: Date; updatedAt: Date; completedBy: string | null; studentCancelled: boolean; studentAcknowledgedAt: Date | null; teacherAcknowledgedAt: Date | null }; isOfficeHours: false; emailToken: string };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await (prisma.$transaction as unknown as (cb: (tx: any) => Promise<TxResult>) => Promise<TxResult>)(async (tx) => {
+    if (!isOfficeHours) {
+      const teacherClash = await tx.appointment.findFirst({
+        where: { teacherId, day, period, status: { in: ["PENDING", "CONFIRMED"] } },
+      });
+      if (teacherClash) {
+        return { error: "teacher-conflict" as const };
+      }
+    }
+
+    const studentClash = await tx.appointment.findFirst({
+      where: { studentId: student.id, day, period, status: { in: ["PENDING", "CONFIRMED"] } },
+    });
+    if (studentClash) {
+      return { error: "student-conflict" as const };
+    }
+
+    if (isOfficeHours) {
+      const created = await tx.appointment.create({
+        data: {
+          day,
+          period,
+          teacherId,
+          studentId: student.id,
+          status: "CONFIRMED",
+          studentNote: studentNote || null,
+          room: teacher.room || "TBD",
+          emailToken: null,
+        },
+      });
+      return { created, isOfficeHours: true as const };
+    }
+
+    const emailToken = crypto.randomUUID();
+    const created = await tx.appointment.create({
       data: {
         day,
         period,
         teacherId,
         studentId: student.id,
-        status: "CONFIRMED",
-        studentNote: studentNote || null,
-        room: teacher.room || "TBD",
-        emailToken: null,
+        status: "PENDING",
+        studentNote,
+        emailToken,
       },
     });
+    return { created, isOfficeHours: false as const, emailToken };
+  });
 
+  if ("error" in result) {
+    if (result.error === "teacher-conflict") {
+      return new Response("Teacher already has an appointment at this time", { status: 409 });
+    }
+    return new Response("You already have an appointment at this time", { status: 409 });
+  }
+
+  const created = result.created;
+
+  if (result.isOfficeHours) {
     try {
       await sendOfficeHoursNotificationEmail({
         studentName: student.fullName,
@@ -430,20 +463,7 @@ export async function POST(request: Request) {
     return Response.json(sanitizeAppointmentForClient(created));
   }
 
-  // Regular meeting: create as PENDING with email token
-  const emailToken = crypto.randomUUID();
-
-  const created = await prisma.appointment.create({
-    data: {
-      day,
-      period,
-      teacherId,
-      studentId: student.id,
-      status: "PENDING",
-      studentNote,
-      emailToken,
-    },
-  });
+  const emailToken = result.emailToken;
 
   try {
     await sendMeetingEmails({
