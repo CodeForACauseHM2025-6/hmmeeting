@@ -1,0 +1,46 @@
+name: security
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    # Daily at 03:00 UTC — catches new advisories dropped overnight.
+    - cron: "0 3 * * *"
+
+# This workflow only consumes well-formed inputs (no PR titles or
+# user-supplied strings flow into `run:` blocks).
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: npm audit (high+)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --ignore-scripts
+      - name: npm audit (production only, high+)
+        run: npm audit --omit=dev --audit-level=high
+
+  typecheck-and-build:
+    name: typecheck + build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: build-placeholder
+      AUTH_SECRET: build-placeholder-build-placeholder-build-pl=
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - run: npm run build

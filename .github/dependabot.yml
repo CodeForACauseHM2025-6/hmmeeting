@@ -1,0 +1,41 @@
+version: 2
+updates:
+  # npm — weekly bumps; security PRs raised immediately by GitHub
+  # regardless of this schedule via Dependabot security updates.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    # Group dev-only and Next-runtime updates separately so review queues
+    # stay manageable.
+    groups:
+      next-runtime:
+        patterns:
+          - "next"
+          - "next-auth"
+          - "react"
+          - "react-dom"
+      prisma:
+        patterns:
+          - "@prisma/*"
+          - "prisma"
+      aws:
+        patterns:
+          - "@aws-sdk/*"
+      types-and-tooling:
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "typescript"
+          - "@tailwindcss/*"
+          - "tailwindcss"
+
+  # Keep GitHub Actions versions current.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
