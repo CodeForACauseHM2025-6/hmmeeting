@@ -143,10 +143,12 @@ if ! nginx -t; then
 fi
 
 log "Reloading nginx..."
-systemctl reload nginx
+${RELOAD_CMD:-systemctl reload nginx}
 
 # ---------------------------------------------------------------- firewall
-if command -v ufw >/dev/null 2>&1; then
+if [ "${SKIP_UFW:-0}" = "1" ]; then
+    warn "SKIP_UFW=1 set — leaving firewall alone."
+elif command -v ufw >/dev/null 2>&1; then
     log "Configuring UFW for Cloudflare-only origin access..."
     ufw allow OpenSSH >/dev/null
     # Allow Cloudflare published ranges on 80/443. Refresh by re-running.
