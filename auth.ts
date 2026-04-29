@@ -6,6 +6,7 @@ import { DEV_USERS } from "@/src/config/devUsers";
 import { ensureDevUsers } from "@/src/server/devSeed";
 import { prisma } from "@/src/server/db";
 import { resolveRole } from "@/src/config/roles";
+import { logSecurityEvent } from "@/src/server/security-log";
 
 export const {
   handlers: { GET, POST }, // GET and POST handlers for the auth routes
@@ -51,11 +52,25 @@ export const {
         return process.env.NODE_ENV !== "production";
       }
       // Only allow horacemann.org emails
-      if (!user?.email?.endsWith("@horacemann.org")) return false;
+      if (!user?.email?.endsWith("@horacemann.org")) {
+        logSecurityEvent({
+          event: "auth.signin.deny",
+          severity: "warn",
+          actor: user?.email ?? null,
+          detail: "non-horacemann email",
+        });
+        return false;
+      }
       // Defense-in-depth: require Google to have verified the email.
       // Workspace accounts always have this flag set; personal accounts
       // could in theory present an unverified address.
       if (account?.provider === "google" && profile && profile.email_verified !== true) {
+        logSecurityEvent({
+          event: "auth.signin.deny",
+          severity: "warn",
+          actor: user?.email,
+          detail: "email_verified=false",
+        });
         return false;
       }
 

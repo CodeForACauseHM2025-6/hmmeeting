@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { logSecurityEvent as logSec } from "@/src/server/security-log";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const isProd = process.env.NODE_ENV === "production";
@@ -31,24 +32,25 @@ function bumpAndCheck(key: string, max: number): boolean {
 
 // Resolve the rate-limit key from headers when behind a trusted proxy.
 //
-// Important: X-Forwarded-For's first entry is attacker-controllable — nginx
-// APPENDS to whatever the client sent (`$proxy_add_x_forwarded_for`). So
-// `xff.split(",")[0]` returns the spoofed value the attacker put there.
-//
-// X-Real-IP, on the other hand, is set with `proxy_set_header X-Real-IP
-// $remote_addr;` in our nginx config — `proxy_set_header` REPLACES the
-// inbound header with nginx's resolved client address. That makes it the
-// only trustworthy source.
+// Trust order (only applied when TRUST_PROXY=true):
+//   1. CF-Connecting-IP — Cloudflare always sets this to the real client
+//      and strips/replaces any inbound copy. Most reliable when behind CF.
+//   2. X-Real-IP — nginx sets this via `proxy_set_header X-Real-IP
+//      $remote_addr;`, which replaces inbound headers. Reliable when
+//      nginx is the immediate hop.
+//   3. Last entry of X-Forwarded-For — the one the trusted proxy
+//      appended. (First entry is attacker-controllable since nginx
+//      APPENDS rather than replaces XFF.)
 //
 // Without TRUST_PROXY, no header is trustworthy, so use a fixed key (per-IP
 // limit collapses to a global limit, which is the safe default until a
 // reverse proxy is configured correctly).
 function clientKey(request: NextRequest): string {
   if (process.env.TRUST_PROXY === "true") {
+    const cf = request.headers.get("cf-connecting-ip");
+    if (cf) return cf.trim();
     const real = request.headers.get("x-real-ip");
     if (real) return real.trim();
-    // Fallback to the LAST XFF entry — that's the one the trusted proxy
-    // appended (i.e. the real connecting IP, by construction).
     const xff = request.headers.get("x-forwarded-for");
     if (xff) {
       const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
@@ -82,11 +84,13 @@ export function middleware(request: NextRequest) {
     // Reject oversized bodies up front so a route handler never sees them.
     const len = Number(request.headers.get("content-length") ?? "0");
     if (Number.isFinite(len) && len > MAX_BODY_BYTES) {
+      logSec({ event: "payload.too-large", severity: "warn", ip, detail: `${path} cl=${len}` });
       return new NextResponse("Payload too large", { status: 413 });
     }
 
     // Global per-IP limit
     if (bumpAndCheck(`g:${ip}`, RATE_LIMIT_MAX)) {
+      logSec({ event: "ratelimit.global", severity: "warn", ip, detail: path });
       return new NextResponse("Too Many Requests", { status: 429 });
     }
     // Stricter limits on sensitive endpoints (per-IP only — session lookup
@@ -94,6 +98,7 @@ export function middleware(request: NextRequest) {
     for (const { prefix, max } of SENSITIVE_LIMITS) {
       if (path.startsWith(prefix)) {
         if (bumpAndCheck(`s:${prefix}:${ip}`, max)) {
+          logSec({ event: "ratelimit.sensitive", severity: "warn", ip, detail: prefix });
           return new NextResponse("Too Many Requests", { status: 429 });
         }
         break;
