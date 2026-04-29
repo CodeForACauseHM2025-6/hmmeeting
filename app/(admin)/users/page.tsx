@@ -7,6 +7,7 @@ import { resolveRole } from "@/src/config/roles";
 import { getEffectiveWeek } from "@/src/config/schedule";
 import { ensureDevUsers } from "@/src/server/devSeed";
 import { assertSameOrigin } from "@/src/server/origin-check";
+import { recordAudit } from "@/src/server/audit";
 import UserSearchTable from "./user-search-table";
 
 const ROLE_OPTIONS = ["STUDENT", "TEACHER", "ADMIN"] as const;
@@ -39,7 +40,7 @@ async function upsertUserRole(formData: FormData) {
   "use server";
 
   await assertSameOrigin();
-  await requireAdmin();
+  const actor = await requireAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const role = String(formData.get("role") ?? "").trim();
@@ -73,6 +74,13 @@ async function upsertUserRole(formData: FormData) {
     });
   }
 
+  await recordAudit({
+    actorEmail: actor.email,
+    action: existing ? "user.role.update" : "user.create",
+    targetEmail: email,
+    detail: `role=${roleValue}`,
+  });
+
   revalidatePath("/users");
 }
 
@@ -80,7 +88,7 @@ async function removeUser(formData: FormData) {
   "use server";
 
   await assertSameOrigin();
-  await requireAdmin();
+  const actor = await requireAdmin();
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   if (!email) return;
@@ -91,15 +99,25 @@ async function removeUser(formData: FormData) {
   });
   if (!user) return;
 
+  let appointmentsDeleted = 0;
   // Delete related records
   if (user.teacher) {
-    await prisma.appointment.deleteMany({ where: { teacherId: user.teacher.id } });
+    const r1 = await prisma.appointment.deleteMany({ where: { teacherId: user.teacher.id } });
+    appointmentsDeleted += r1.count;
     await prisma.availability.deleteMany({ where: { teacherId: user.teacher.id } });
     await prisma.teacher.delete({ where: { id: user.teacher.id } });
   }
-  await prisma.appointment.deleteMany({ where: { studentId: user.id } });
+  const r2 = await prisma.appointment.deleteMany({ where: { studentId: user.id } });
+  appointmentsDeleted += r2.count;
   await prisma.studentAvailability.deleteMany({ where: { userId: user.id } });
   await prisma.user.delete({ where: { id: user.id } });
+
+  await recordAudit({
+    actorEmail: actor.email,
+    action: "user.remove",
+    targetEmail: email,
+    detail: `appointmentsDeleted=${appointmentsDeleted}`,
+  });
 
   revalidatePath("/users");
 }
@@ -108,13 +126,19 @@ async function clearAllSchedules() {
   "use server";
 
   await assertSameOrigin();
-  await requireAdmin();
+  const actor = await requireAdmin();
 
-  await prisma.availability.deleteMany({});
-  await prisma.studentAvailability.deleteMany({});
-  await prisma.appointment.updateMany({
+  const a1 = await prisma.availability.deleteMany({});
+  const a2 = await prisma.studentAvailability.deleteMany({});
+  const a3 = await prisma.appointment.updateMany({
     where: { status: { in: ["PENDING", "CONFIRMED"] } },
     data: { status: "CANCELLED", emailToken: null },
+  });
+
+  await recordAudit({
+    actorEmail: actor.email,
+    action: "schedules.clear_all",
+    detail: `availabilities=${a1.count} studentAvailabilities=${a2.count} appointmentsCancelled=${a3.count}`,
   });
 
   revalidatePath("/users");
@@ -123,7 +147,7 @@ async function clearAllSchedules() {
 async function updateScheduleWeek(formData: FormData) {
   "use server";
   await assertSameOrigin();
-  await requireAdmin();
+  const actor = await requireAdmin();
 
   const weekValue = String(formData.get("week") ?? "");
   if (weekValue !== "1" && weekValue !== "2") return;
@@ -141,6 +165,12 @@ async function updateScheduleWeek(formData: FormData) {
     where: { id: SETTINGS_ID },
     create: { id: SETTINGS_ID, currentWeek, weekSetAt: anchorMonday },
     update: { currentWeek, weekSetAt: anchorMonday },
+  });
+
+  await recordAudit({
+    actorEmail: actor.email,
+    action: "schedule.week.set",
+    detail: `week=${weekValue}`,
   });
 
   revalidatePath("/users");

@@ -100,6 +100,21 @@ model AppSettings {
   updatedAt   DateTime     @updatedAt
 }
 
+// Forensic trail for privileged actions. Append-only by convention — no
+// route handler updates or deletes rows. Held in plaintext deliberately so
+// it stays readable after a key-rotation event.
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorEmail  String
+  action      String
+  targetEmail String?
+  detail      String?
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([actorEmail])
+}
+
 enum Role {
   STUDENT
   TEACHER
