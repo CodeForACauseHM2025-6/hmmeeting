@@ -379,14 +379,12 @@ export async function POST(request: Request) {
   // through create. (The DB has no unique constraint on (teacherId, day,
   // period) — and can't, because office hours legitimately allow multiple
   // appointments per slot — so we serialize at the application level.)
-  // The `$extends`-wrapped client confuses the TS overload picker for
-  // interactive transactions; the runtime supports it fine. Cast to silence.
+  type CreatedAppointment = Awaited<ReturnType<typeof prisma.appointment.create>>;
   type TxResult =
     | { error: "teacher-conflict" | "student-conflict" }
-    | { created: { day: number; period: typeof period; teacherId: string; studentId: string; status: string; studentNote: string | null; teacherNote: string | null; room: string | null; emailToken: string | null; id: string; createdAt: Date; updatedAt: Date; completedBy: string | null; studentCancelled: boolean; studentAcknowledgedAt: Date | null; teacherAcknowledgedAt: Date | null }; isOfficeHours: true }
-    | { created: { day: number; period: typeof period; teacherId: string; studentId: string; status: string; studentNote: string | null; teacherNote: string | null; room: string | null; emailToken: string | null; id: string; createdAt: Date; updatedAt: Date; completedBy: string | null; studentCancelled: boolean; studentAcknowledgedAt: Date | null; teacherAcknowledgedAt: Date | null }; isOfficeHours: false; emailToken: string };
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result = await (prisma.$transaction as unknown as (cb: (tx: any) => Promise<TxResult>) => Promise<TxResult>)(async (tx) => {
+    | { created: CreatedAppointment; isOfficeHours: true }
+    | { created: CreatedAppointment; isOfficeHours: false; emailToken: string };
+  const result = await runInTransaction<TxResult>(async (tx) => {
     if (!isOfficeHours) {
       const teacherClash = await tx.appointment.findFirst({
         where: { teacherId, day, period, status: { in: ["PENDING", "CONFIRMED"] } },
@@ -495,6 +493,16 @@ function sanitizeAppointmentForClient<T extends Record<string, unknown>>(row: T)
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { emailToken, ...rest } = row as T & { emailToken?: unknown };
   return rest;
+}
+
+// Helper for interactive transactions. The `$extends`-wrapped client confuses
+// the TS overload picker (it sees the array overload first), so we coerce to
+// the callback overload here. Behavior is unchanged at runtime.
+type TxClient = Parameters<Parameters<typeof prisma.$transaction>[0] extends (tx: infer T) => unknown ? (tx: T) => unknown : never>[0];
+function runInTransaction<T>(cb: (tx: TxClient) => Promise<T>): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fn = prisma.$transaction as unknown as (cb: (tx: any) => Promise<T>) => Promise<T>;
+  return fn(cb);
 }
 
 export async function PATCH(request: Request) {
