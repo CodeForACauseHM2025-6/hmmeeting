@@ -210,41 +210,63 @@ cmd_deploy() {
 }
 
 # ----------------------------------------------------------
-# backup: Backup the SQLite database
+# backup: encrypted SQLite backup via scripts/backup-tool.ts
+#
+# Backups are AES-256-GCM encrypted under AWS_BACKUP_SECRET_NAME (or
+# BACKUP_KEY for dev). Files are written with mode 0600 to keep them
+# unreadable by other users on the box, and use the .db.enc extension.
 # ----------------------------------------------------------
 cmd_backup() {
     cd "$APP_DIR"
+    load_env
     mkdir -p "$BACKUP_DIR"
+    chmod 700 "$BACKUP_DIR"
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-    BACKUP_FILE="$BACKUP_DIR/prod_backup_$TIMESTAMP.db"
+    BACKUP_FILE="$BACKUP_DIR/prod_backup_$TIMESTAMP.db.enc"
 
-    if [ -f "$DATA_DIR/prod.db" ]; then
-        cp "$DATA_DIR/prod.db" "$BACKUP_FILE"
-        log "Database backed up to: $BACKUP_FILE"
-        log "Total backups:"
-        ls -lh "$BACKUP_DIR"
-    else
+    if [ ! -f "$DATA_DIR/prod.db" ]; then
         err "No database found at $DATA_DIR/prod.db"
     fi
+
+    if [ -z "$AWS_BACKUP_SECRET_NAME" ] && [ -z "$BACKUP_KEY" ]; then
+        err "No backup key configured. Set AWS_BACKUP_SECRET_NAME+AWS_REGION (prod) or BACKUP_KEY (dev) in .env.production."
+    fi
+
+    # Use SQLite's online backup API to get a consistent snapshot, then
+    # encrypt the snapshot. The temp file gets shredded.
+    SNAP="$DATA_DIR/.snap_$TIMESTAMP.db"
+    sqlite3 "$DATA_DIR/prod.db" ".backup '$SNAP'"
+    npx tsx scripts/backup-tool.ts encrypt "$SNAP" "$BACKUP_FILE"
+    chmod 600 "$BACKUP_FILE"
+    rm -f "$SNAP"
+
+    log "Database backed up (encrypted) to: $BACKUP_FILE"
+    log "Total backups:"
+    ls -lh "$BACKUP_DIR"
 }
 
 # ----------------------------------------------------------
-# restore: Restore SQLite from a backup
+# restore: decrypt a backup, replace prod.db
 # ----------------------------------------------------------
 cmd_restore() {
     cd "$APP_DIR"
+    load_env
 
     if [ -z "$2" ]; then
         echo "Available backups:"
         ls -1 "$BACKUP_DIR" 2>/dev/null || echo "  No backups found."
         echo ""
-        echo "Usage: ./deploy.sh restore <backup_filename>"
+        echo "Usage: ./deploy.sh restore <backup_filename.db.enc>"
         exit 1
     fi
 
     BACKUP_FILE="$BACKUP_DIR/$2"
     if [ ! -f "$BACKUP_FILE" ]; then
         err "Backup file not found: $BACKUP_FILE"
+    fi
+
+    if [ -z "$AWS_BACKUP_SECRET_NAME" ] && [ -z "$BACKUP_KEY" ]; then
+        err "No backup key configured to decrypt this backup."
     fi
 
     warn "This will replace the current database with: $2"
@@ -254,9 +276,12 @@ cmd_restore() {
         exit 0
     fi
 
+    TMP_OUT="$DATA_DIR/.restore_$(date +%s).db"
+    npx tsx scripts/backup-tool.ts decrypt "$BACKUP_FILE" "$TMP_OUT"
+
     pm2 stop hmmeeting
-    cp "$BACKUP_FILE" "$DATA_DIR/prod.db"
-    load_env
+    mv "$TMP_OUT" "$DATA_DIR/prod.db"
+    chmod 600 "$DATA_DIR/prod.db"
     pm2_fresh_start
     log "Database restored from: $2"
 }
