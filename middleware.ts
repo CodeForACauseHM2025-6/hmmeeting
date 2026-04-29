@@ -69,11 +69,22 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000);
 
+// 64 KiB ceiling on any API body. Real payloads are tiny (a 1000-char note
+// plus some metadata is well under 2 KB) — anything bigger is either a bug
+// or an abuse attempt.
+const MAX_BODY_BYTES = 64 * 1024;
+
 export function middleware(request: NextRequest) {
   const ip = clientKey(request);
   const path = request.nextUrl.pathname;
 
   if (path.startsWith("/api/")) {
+    // Reject oversized bodies up front so a route handler never sees them.
+    const len = Number(request.headers.get("content-length") ?? "0");
+    if (Number.isFinite(len) && len > MAX_BODY_BYTES) {
+      return new NextResponse("Payload too large", { status: 413 });
+    }
+
     // Global per-IP limit
     if (bumpAndCheck(`g:${ip}`, RATE_LIMIT_MAX)) {
       return new NextResponse("Too Many Requests", { status: 429 });
