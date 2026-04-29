@@ -29,24 +29,33 @@ function bumpAndCheck(key: string, max: number): boolean {
   return entry.count > max;
 }
 
-// X-Forwarded-For is only trusted when TRUST_PROXY=true (set this when
-// running behind a controlled reverse proxy like nginx that overwrites the
-// header). Otherwise we use the raw connection IP from `request.ip`-equivalent
-// fields, which arbitrary clients cannot spoof.
+// Resolve the rate-limit key from headers when behind a trusted proxy.
+//
+// Important: X-Forwarded-For's first entry is attacker-controllable — nginx
+// APPENDS to whatever the client sent (`$proxy_add_x_forwarded_for`). So
+// `xff.split(",")[0]` returns the spoofed value the attacker put there.
+//
+// X-Real-IP, on the other hand, is set with `proxy_set_header X-Real-IP
+// $remote_addr;` in our nginx config — `proxy_set_header` REPLACES the
+// inbound header with nginx's resolved client address. That makes it the
+// only trustworthy source.
+//
+// Without TRUST_PROXY, no header is trustworthy, so use a fixed key (per-IP
+// limit collapses to a global limit, which is the safe default until a
+// reverse proxy is configured correctly).
 function clientKey(request: NextRequest): string {
   if (process.env.TRUST_PROXY === "true") {
+    const real = request.headers.get("x-real-ip");
+    if (real) return real.trim();
+    // Fallback to the LAST XFF entry — that's the one the trusted proxy
+    // appended (i.e. the real connecting IP, by construction).
     const xff = request.headers.get("x-forwarded-for");
     if (xff) {
-      // First entry is the original client; trust because we control the proxy.
-      const first = xff.split(",")[0]?.trim();
-      if (first) return first;
+      const parts = xff.split(",").map((s) => s.trim()).filter(Boolean);
+      const last = parts[parts.length - 1];
+      if (last) return last;
     }
-    const real = request.headers.get("x-real-ip");
-    if (real) return real;
   }
-  // Fallback: any header here is attacker-controlled, so use a fixed key.
-  // This makes the per-IP limit effectively a global limit, which is a
-  // reasonable default until TRUST_PROXY is configured.
   return "unknown";
 }
 
