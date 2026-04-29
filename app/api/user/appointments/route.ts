@@ -321,7 +321,9 @@ export async function POST(request: Request) {
   const period = payload?.period;
   const studentNote = typeof payload?.studentNote === "string" ? payload.studentNote.trim().slice(0, 1000) : "";
 
-  if (!teacherId || typeof day !== "number") {
+  // teacherId must be a primitive string — otherwise Prisma throws on a
+  // shape like {not: "x"} and we'd return a generic 500.
+  if (typeof teacherId !== "string" || !teacherId || typeof day !== "number") {
     return new Response("Invalid payload", { status: 400 });
   }
 
@@ -392,6 +394,8 @@ export async function POST(request: Request) {
     scheduleSettings
   );
 
+  // Strip any field a client must never see (notably emailToken — see
+  // sanitizeAppointmentForClient).
   if (isOfficeHours) {
     // Office hours: auto-confirm, no approval needed
     const created = await prisma.appointment.create({
@@ -423,7 +427,7 @@ export async function POST(request: Request) {
       console.error("Failed to send office hours notification", { name: (error as Error)?.name });
     }
 
-    return Response.json(created);
+    return Response.json(sanitizeAppointmentForClient(created));
   }
 
   // Regular meeting: create as PENDING with email token
@@ -458,7 +462,19 @@ export async function POST(request: Request) {
     console.error("Failed to send meeting emails", { name: (error as Error)?.name });
   }
 
-  return Response.json(created);
+  return Response.json(sanitizeAppointmentForClient(created));
+}
+
+// emailToken authorizes accept/decline through the email-link flow with no
+// session check — anyone holding the token can act on the appointment. Until
+// our pentest, it leaked back to the booking student in the POST response,
+// which let them self-confirm or self-decline (impersonating the teacher),
+// set their own room, and write a fake "teacher note". Strip it on the way
+// out.
+function sanitizeAppointmentForClient<T extends Record<string, unknown>>(row: T): Omit<T, "emailToken"> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { emailToken, ...rest } = row as T & { emailToken?: unknown };
+  return rest;
 }
 
 export async function PATCH(request: Request) {
@@ -468,8 +484,8 @@ export async function PATCH(request: Request) {
   }
 
   const body = await request.json().catch(() => null);
-  const id = body?.id as string | undefined;
-  const action = body?.action as string | undefined;
+  const id = typeof body?.id === "string" ? body.id : undefined;
+  const action = typeof body?.action === "string" ? body.action : undefined;
   const teacherNote = typeof body?.note === "string" ? body.note.trim().slice(0, 1000) : "";
   const room = typeof body?.room === "string" ? body.room.trim().slice(0, 100) : "";
 
@@ -506,11 +522,11 @@ export async function PATCH(request: Request) {
 
   if (action === "confirm") {
     if (resolvedRole !== "TEACHER") {
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
     const teacherId = await resolveTeacherId();
     if (appointment.teacherId !== teacherId) {
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
     if (!room) {
       return new Response("Room is required to accept a meeting", { status: 400 });
@@ -547,16 +563,16 @@ export async function PATCH(request: Request) {
       console.error("Failed to send student confirmation email", { name: (err as Error)?.name });
     }
 
-    return Response.json(updated);
+    return Response.json(sanitizeAppointmentForClient(updated));
   }
 
   if (action === "decline") {
     if (resolvedRole !== "TEACHER") {
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
     const teacherId = await resolveTeacherId();
     if (appointment.teacherId !== teacherId) {
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
     const updated = await prisma.appointment.update({
       where: { id },
@@ -595,7 +611,7 @@ export async function PATCH(request: Request) {
       console.error("Failed to send student declined email", { name: (err as Error)?.name });
     }
 
-    return Response.json(updated);
+    return Response.json(sanitizeAppointmentForClient(updated));
   }
 
   if (action === "complete") {
@@ -606,15 +622,15 @@ export async function PATCH(request: Request) {
     const isBooker = resolvedRole === "STUDENT" || resolvedRole === "ADMIN";
     if (isBooker) {
       if (appointment.studentId !== user.id) {
-        return new Response("Forbidden", { status: 403 });
+        return new Response("Not found", { status: 404 });
       }
     } else if (resolvedRole === "TEACHER") {
       const teacherId = await resolveTeacherId();
       if (appointment.teacherId !== teacherId) {
-        return new Response("Forbidden", { status: 403 });
+        return new Response("Not found", { status: 404 });
       }
     } else {
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
 
     const updated = await prisma.appointment.update({
@@ -625,22 +641,22 @@ export async function PATCH(request: Request) {
       },
     });
 
-    return Response.json(updated);
+    return Response.json(sanitizeAppointmentForClient(updated));
   }
 
   if (action === "cancel") {
     const isBooker = resolvedRole === "STUDENT" || resolvedRole === "ADMIN";
     if (isBooker) {
       if (appointment.studentId !== user.id) {
-        return new Response("Forbidden", { status: 403 });
+        return new Response("Not found", { status: 404 });
       }
     } else if (resolvedRole === "TEACHER") {
       const teacherId = await resolveTeacherId();
       if (appointment.teacherId !== teacherId) {
-        return new Response("Forbidden", { status: 403 });
+        return new Response("Not found", { status: 404 });
       }
     } else {
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
 
     const updated = await prisma.appointment.update({
@@ -692,57 +708,66 @@ export async function PATCH(request: Request) {
       console.error("Failed to send cancellation email", { name: (err as Error)?.name });
     }
 
-    return Response.json(updated);
+    return Response.json(sanitizeAppointmentForClient(updated));
   }
 
   if (action === "acknowledge") {
+    // Ownership check up front so an outsider can't distinguish "exists but
+    // wrong status" from "doesn't exist".
+    const isOwner =
+      ((resolvedRole === "STUDENT" || resolvedRole === "ADMIN") && appointment.studentId === user.id) ||
+      (resolvedRole === "TEACHER" && user.teacher?.id !== undefined && appointment.teacherId === user.teacher.id);
+    if (!isOwner) {
+      return new Response("Not found", { status: 404 });
+    }
+
     if (appointment.status === "CANCELLED") {
       if (resolvedRole === "STUDENT" || resolvedRole === "ADMIN") {
         // Booker acknowledges a cancellation from the teacher side
         if (appointment.studentId !== user.id || appointment.studentCancelled) {
-          return new Response("Forbidden", { status: 403 });
+          return new Response("Not found", { status: 404 });
         }
         const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(deleted);
+        return Response.json(sanitizeAppointmentForClient(deleted));
       }
 
       if (resolvedRole === "TEACHER") {
         const teacherId = await resolveTeacherId();
         if (appointment.teacherId !== teacherId || !appointment.studentCancelled) {
-          return new Response("Forbidden", { status: 403 });
+          return new Response("Not found", { status: 404 });
         }
         const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(deleted);
+        return Response.json(sanitizeAppointmentForClient(deleted));
       }
 
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
 
     if (appointment.status === "COMPLETED") {
       if (resolvedRole === "STUDENT" || resolvedRole === "ADMIN") {
         if (appointment.studentId !== user.id) {
-          return new Response("Forbidden", { status: 403 });
+          return new Response("Not found", { status: 404 });
         }
         if (appointment.completedBy === "STUDENT") {
-          return new Response("Forbidden", { status: 403 });
+          return new Response("Not found", { status: 404 });
         }
         const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(deleted);
+        return Response.json(sanitizeAppointmentForClient(deleted));
       }
 
       if (resolvedRole === "TEACHER") {
         const teacherId = await resolveTeacherId();
         if (appointment.teacherId !== teacherId) {
-          return new Response("Forbidden", { status: 403 });
+          return new Response("Not found", { status: 404 });
         }
         if (appointment.completedBy === "TEACHER") {
-          return new Response("Forbidden", { status: 403 });
+          return new Response("Not found", { status: 404 });
         }
         const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(deleted);
+        return Response.json(sanitizeAppointmentForClient(deleted));
       }
 
-      return new Response("Forbidden", { status: 403 });
+      return new Response("Not found", { status: 404 });
     }
 
     return new Response("Only cancelled or completed meetings can be acknowledged", {
