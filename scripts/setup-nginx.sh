@@ -78,9 +78,8 @@ cat > /etc/nginx/sites-available/01-default-https <<EOF
 # header (including a direct-IP probe) gets the connection closed without
 # a response.
 server {
-    listen 443 ssl default_server;
-    listen [::]:443 ssl default_server;
-    http2 on;
+    listen 443 ssl http2 default_server;
+    listen [::]:443 ssl http2 default_server;
     server_name _;
 
     ssl_certificate     $CERT;
@@ -97,9 +96,8 @@ ln -sf /etc/nginx/sites-available/01-default-https /etc/nginx/sites-enabled/01-d
 cat > "/etc/nginx/sites-available/$DOMAIN" <<EOF
 # scheduler.mtrokel.org -> Next.js app on 127.0.0.1:$APP_PORT
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
     server_name $DOMAIN;
 
     ssl_certificate     $CERT;
