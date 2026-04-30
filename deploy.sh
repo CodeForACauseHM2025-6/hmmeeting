@@ -209,11 +209,17 @@ cmd_deploy() {
         git pull --ff-only
     fi
 
-    log "Installing dependencies..."
-    npm ci
+    # Stop the app before installing/building. The Linode is small (~1 GB
+    # RAM) and `npm ci` + `next build` peak well above what's free with the
+    # app still running — we got OOM-killed (exit 137) on the first deploy.
+    # Brief downtime here is acceptable; nginx returns 502 for the ~30s gap.
+    log "Stopping app to free memory for build..."
+    pm2 stop hmmeeting 2>/dev/null || true
 
-    log "Checking for known vulnerabilities..."
-    npm audit --omit=dev || warn "Vulnerabilities found — review above before going live."
+    log "Installing dependencies..."
+    # --no-audit/--no-fund cut npm's peak memory and runtime. The full audit
+    # already ran in CI on the build job before we got here.
+    npm ci --no-audit --no-fund
 
     log "Generating Prisma client..."
     npx prisma generate
@@ -222,7 +228,8 @@ cmd_deploy() {
     npx prisma migrate deploy
 
     log "Building Next.js..."
-    npm run build
+    # Cap Node's heap so the build can't trip the OOM killer on this box.
+    NODE_OPTIONS="--max-old-space-size=512" npm run build
 
     log "Restarting app..."
     pm2_fresh_start
