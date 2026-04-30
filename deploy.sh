@@ -22,6 +22,17 @@ APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKUP_DIR="$APP_DIR/backups"
 DATA_DIR="$APP_DIR/data"
 
+# Load nvm if present so node/npm/pm2 from nvm are on PATH in non-interactive
+# shells (CI deploys via `ssh root@host "./deploy.sh deploy"` don't source
+# .bashrc, which is where the nvm shim lives).
+if [ -z "${NVM_DIR:-}" ]; then
+    export NVM_DIR="$HOME/.nvm"
+fi
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+    # shellcheck disable=SC1091
+    \. "$NVM_DIR/nvm.sh"
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -184,8 +195,19 @@ cmd_deploy() {
     cd "$APP_DIR"
     load_env
 
-    log "Pulling latest code..."
-    git pull
+    log "Fetching..."
+    git fetch --all --tags --prune
+
+    if [ -n "${REF:-}" ]; then
+        # Tag-based deploy (used by .github/workflows/deploy.yml on tag push).
+        # `reset --hard` rather than `checkout` so we end up at the exact ref
+        # even if the worktree had stray changes from a prior deploy.
+        log "Resetting to $REF..."
+        git reset --hard "$REF"
+    else
+        log "Pulling latest..."
+        git pull --ff-only
+    fi
 
     log "Installing dependencies..."
     npm ci

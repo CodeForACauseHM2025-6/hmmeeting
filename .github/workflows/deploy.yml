@@ -1,0 +1,124 @@
+name: deploy
+
+# Trigger: pushing a semver tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`)
+# deploys that exact commit to prod. The `workflow_dispatch` trigger lets you
+# re-run the deploy from the Actions tab without making a new tag (useful if
+# the SSH step flaked, or to redeploy `main`).
+#
+# Required GitHub secrets:
+#   LINODE_SSH_HOST   IP or non-proxied hostname of the Linode (e.g. 69.164.213.218
+                     or a gray-cloud DNS record). The public hostname
+                     scheduler.mtrokel.org is Cloudflare-proxied, so SSH to it
+                     fails — Cloudflare only proxies HTTP/HTTPS.
+  APP_HOST          (optional) Public hostname used by the post-deploy health
+                     check, defaults to scheduler.mtrokel.org if unset.
+#   LINODE_SSH_KEY    Private key whose public key is in /root/.ssh/authorized_keys
+#                     on the Linode. ed25519 preferred. Generate locally with
+#                     `ssh-keygen -t ed25519 -f deploy_key`, copy the .pub to
+#                     /root/.ssh/authorized_keys on the box, and paste the
+#                     private key (`cat deploy_key`) into this secret.
+#   LINODE_KNOWN_HOSTS  (optional) Pinned host key, output of
+#                     `ssh-keyscan scheduler.mtrokel.org`. If unset, the
+#                     workflow falls back to TOFU via ssh-keyscan at run time
+#                     (less secure — a network attacker on the GitHub runner's
+#                     path could MITM the first connection).
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Don't let two deploys race each other if you push two tags back-to-back.
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: typecheck + build (gate)
+    runs-on: ubuntu-latest
+    env:
+      # Build-time placeholders — production env vars live in .env.production
+      # on the Linode and only matter at runtime. The build only fails on
+      # missing NEXT_PUBLIC_* and AUTH_SECRET, so dummy values are fine here.
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: build-placeholder
+      AUTH_SECRET: build-placeholder-build-placeholder-build-pl=
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci --ignore-scripts
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  deploy:
+    name: ssh + deploy.sh
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.LINODE_SSH_KEY }}
+          SSH_HOST: ${{ secrets.LINODE_SSH_HOST }}
+          PINNED_KNOWN_HOSTS: ${{ secrets.LINODE_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          if [ -n "$PINNED_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$PINNED_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -H "$SSH_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          fi
+          chmod 644 ~/.ssh/known_hosts
+
+      - name: Deploy
+        env:
+          SSH_HOST: ${{ secrets.LINODE_SSH_HOST }}
+          REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # Defense-in-depth: even though the `v*.*.*` tag filter constrains
+          # the trigger, validate `REF` against an allowlist before passing
+          # it to ssh — github.ref_name is attacker-controlled (anyone with
+          # push access can craft a ref name), and a `;` in the ref would
+          # otherwise break out of the remote shell command.
+          case "$REF" in
+            *[!A-Za-z0-9._/-]*|"")
+              echo "Refusing to deploy: ref '$REF' contains unsafe characters."
+              exit 1
+              ;;
+          esac
+          echo "Deploying ref: $REF"
+          ssh -i ~/.ssh/id_deploy -o IdentitiesOnly=yes "root@$SSH_HOST" \
+            "REF=$REF /var/www/hmmeeting/deploy.sh deploy"
+
+      - name: Health check
+        env:
+          # Public hostname (Cloudflare-proxied), distinct from LINODE_SSH_HOST
+          # which is the direct Linode IP. Defaults if the secret is unset.
+          APP_HOST: ${{ secrets.APP_HOST || 'scheduler.mtrokel.org' }}
+        run: |
+          set -euo pipefail
+          # Hit the public URL through Cloudflare so this also catches edge
+          # config regressions (HSTS, page rules, etc.), not just origin
+          # health. Retry for ~30s in case PM2 is still warming up.
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 10 "https://$APP_HOST/api/health" | grep -q '"status":"ok"'; then
+              echo "Health check OK on attempt $i"
+              exit 0
+            fi
+            echo "Health check attempt $i failed; sleeping 5s..."
+            sleep 5
+          done
+          echo "Health check did not return ok after 30s — investigate pm2 logs."
+          exit 1
