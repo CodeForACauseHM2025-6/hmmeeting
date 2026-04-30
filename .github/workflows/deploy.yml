@@ -7,11 +7,11 @@ name: deploy
 #
 # Required GitHub secrets:
 #   LINODE_SSH_HOST   IP or non-proxied hostname of the Linode (e.g. 69.164.213.218
-                     or a gray-cloud DNS record). The public hostname
-                     scheduler.mtrokel.org is Cloudflare-proxied, so SSH to it
-                     fails — Cloudflare only proxies HTTP/HTTPS.
-  APP_HOST          (optional) Public hostname used by the post-deploy health
-                     check, defaults to scheduler.mtrokel.org if unset.
+#                     or a gray-cloud DNS record). The public hostname
+#                     scheduler.mtrokel.org is Cloudflare-proxied, so SSH to it
+#                     fails — Cloudflare only proxies HTTP/HTTPS.
+#   APP_HOST          (optional) Public hostname used by the post-deploy health
+#                     check, defaults to scheduler.mtrokel.org if unset.
 #   LINODE_SSH_KEY    Private key whose public key is in /root/.ssh/authorized_keys
 #                     on the Linode. ed25519 preferred. Generate locally with
 #                     `ssh-keygen -t ed25519 -f deploy_key`, copy the .pub to
