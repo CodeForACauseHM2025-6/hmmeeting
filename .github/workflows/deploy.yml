@@ -1,9 +1,16 @@
 name: deploy
 
-# Trigger: pushing a semver tag (e.g. `git tag v0.2.0 && git push origin v0.2.0`)
-# deploys that exact commit to prod. The `workflow_dispatch` trigger lets you
-# re-run the deploy from the Actions tab without making a new tag (useful if
-# the SSH step flaked, or to redeploy `main`).
+# Trigger: publishing a GitHub Release deploys the tag the release points
+# at to prod. Cut a release from the GitHub UI ("Releases → Draft a new
+# release"), pick a v*.*.* tag, hit "Publish release" — that fires the
+# `release: published` event and runs this workflow. The `workflow_dispatch`
+# trigger lets you re-run the deploy from the Actions tab without cutting
+# a new release (useful if the SSH step flaked, or to redeploy `main`).
+#
+# Why releases instead of plain tag pushes: a release is an explicit
+# "ship it" action with a UI prompt, release notes, and a draft state —
+# harder to deploy by accident. A bare `git push --tags` doesn't pause to
+# confirm.
 #
 # Required GitHub secrets:
 #   LINODE_SSH_HOST   IP or non-proxied hostname of the Linode (e.g. 69.164.213.218
@@ -24,9 +31,11 @@ name: deploy
 #                     path could MITM the first connection).
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  release:
+    # `published` fires when a release transitions out of draft (or is
+    # created non-draft). Don't use `released` — that fires a second time
+    # if you uncheck pre-release later, which would re-deploy.
+    types: [published]
   workflow_dispatch:
 
 permissions:
