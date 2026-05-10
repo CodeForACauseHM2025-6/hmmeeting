@@ -19,7 +19,7 @@ jobs:
     name: npm audit (high+)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with:
           node-version: "20"
@@ -35,7 +35,7 @@ jobs:
       NEXT_PUBLIC_GOOGLE_CLIENT_ID: build-placeholder
       AUTH_SECRET: build-placeholder-build-placeholder-build-pl=
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v5
         with:
           node-version: "20"
