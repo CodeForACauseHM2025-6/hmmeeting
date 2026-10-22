@@ -297,7 +297,6 @@ export default function SetNamePage() {
                 backgroundColor: 'var(--surface-warm)',
               }}
             />
-            <p style={{ color: 'var(--muted)', fontSize: '11px', marginTop: '4px' }}>Set by your Google account</p>
           </div>
 
           <div>
@@ -407,7 +406,7 @@ export default function SetNamePage() {
             {role === 'TEACHER'
               ? 'Tap the periods you are available to meet. Students will only see periods you select.'
               : role === 'ADMIN'
-              ? 'If you teach, tap the periods you are available to meet — you\'ll appear in the Teachers list once any period is marked. Leave it empty if you don\'t take meetings.'
+              ? 'Tap a slot to mark it as free, tap it again to mark it as an office hours.'
               : 'Tap the periods you are available to meet. This will be used to match with teacher availability.'}
           </p>
 
