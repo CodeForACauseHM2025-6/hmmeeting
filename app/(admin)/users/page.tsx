@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
 import { Role } from "@prisma/client";
 import { resolveRole } from "@/src/config/roles";
-import { getEffectiveWeek } from "@/src/config/schedule";
+import { SCHOOL_TIMEZONE, getEffectiveWeek, getWeekAnchor } from "@/src/config/schedule";
 import { ensureDevUsers } from "@/src/server/devSeed";
 import { assertSameOrigin } from "@/src/server/origin-check";
 import { recordAudit } from "@/src/server/audit";
@@ -152,13 +152,9 @@ async function updateScheduleWeek(formData: FormData) {
   const weekValue = String(formData.get("week") ?? "");
   if (weekValue !== "1" && weekValue !== "2") return;
 
-  // Snap to the most recent Monday
-  const now = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const day = now.getDay(); // 0=Sun, 1=Mon ... 6=Sat
-  const daysToMonday = day === 0 ? 6 : day - 1;
-  const anchorMonday = new Date(now);
-  anchorMonday.setDate(now.getDate() - daysToMonday);
-  anchorMonday.setHours(12, 0, 0, 0); // noon to avoid timezone edge cases
+  // Snap to this school week's Monday (the coming one on Sundays) — must use
+  // the same Sunday rule as getEffectiveWeek or the stored week flips.
+  const anchorMonday = getWeekAnchor();
 
   const currentWeek = weekValue === "1" ? "WEEK1" : "WEEK2";
   await prisma.appSettings.upsert({
@@ -317,7 +313,7 @@ export default async function AdminUsersPage() {
             Effective week today: <strong style={{ color: "var(--foreground)" }}>Week {effectiveWeek}</strong>
           </div>
           <div>
-            Last set: {scheduleSettings.weekSetAt.toLocaleString()}
+            Last set: {scheduleSettings.weekSetAt.toLocaleString("en-US", { timeZone: SCHOOL_TIMEZONE, timeZoneName: "short" })}
           </div>
         </div>
         <form action={updateScheduleWeek} style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>

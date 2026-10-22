@@ -118,6 +118,17 @@ function countSundaysSince(from: Date, to: Date, timeZone: string) {
   return 1 + Math.floor((endKey - firstSundayKey) / 7);
 }
 
+/**
+ * The instant to store as `weekSetAt` when an admin sets the week "now":
+ * noon (school time) on the Monday of the current school week. On Sundays
+ * that is the *coming* Monday, matching how buildDayDateMap and
+ * getEffectiveWeek treat Sunday as the start of the next week.
+ */
+export function getWeekAnchor(now = new Date()): Date {
+  const monday = getCurrentWeekMondayParts(now, SCHOOL_TIMEZONE);
+  return makeZonedDate({ ...monday, hour: 12, minute: 0 }, SCHOOL_TIMEZONE);
+}
+
 export function getEffectiveWeek(settings: ScheduleSettings, now = new Date()): WeekValue {
   const setAt = settings.weekSetAt instanceof Date ? settings.weekSetAt : new Date(settings.weekSetAt);
   const sundaysSinceSet = countSundaysSince(setAt, now, SCHOOL_TIMEZONE);
