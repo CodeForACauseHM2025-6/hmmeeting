@@ -72,8 +72,9 @@ export default function DashboardPage() {
     const firstName = user.fullName.split(" ")[0];
 
     switch (user.role) {
+        // Admins book meetings like students (the appointments API returns
+        // their bookings in the booker shape), so they get the same view.
         case "ADMIN":
-            return <AdminRedirect />;
         case "STUDENT":
             return <StudentDashboard firstName={firstName} />;
         case "TEACHER":
@@ -111,14 +112,6 @@ function DashboardSkeleton() {
     );
 }
 
-function AdminRedirect() {
-    const router = useRouter();
-    useEffect(() => {
-        router.replace("/users");
-    }, [router]);
-    return <DashboardSkeleton />;
-}
-
 function getGreeting(): string {
     const hour = new Date().getHours();
     if (hour < 12) return "Good morning";
@@ -132,6 +125,7 @@ function StatusBadge({ status }: { status: string }) {
         COMPLETED: { bg: "#f0fdf4", color: "var(--success)", label: "Completed" },
         CONFIRMED: { bg: "var(--accent-soft)", color: "var(--primary)", label: "Confirmed" },
         PENDING: { bg: "var(--surface-warm)", color: "var(--muted)", label: "Pending" },
+        DECLINED: { bg: "#fef2f2", color: "var(--danger)", label: "Declined" },
     };
     const c = config[status] ?? config.PENDING;
     return (
@@ -952,40 +946,6 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                     </div>
                 )}
             </div>
-        </div>
-    );
-}
-
-function AdminDashboard({ firstName }: { firstName: string }) {
-    return (
-        <div style={{ padding: "48px 40px" }}>
-            <h1 style={{
-                fontFamily: "var(--font-lora, Georgia, serif)",
-                fontSize: "36px",
-                fontWeight: 700,
-                color: "var(--primary)",
-                marginBottom: "4px",
-                letterSpacing: "-0.02em",
-            }}>
-                {getGreeting()}, {firstName}
-            </h1>
-            <p style={{ color: "var(--muted)", fontSize: "15px", marginBottom: "28px" }}>Admin dashboard</p>
-            <Link
-                href="/users"
-                className="btn-fill"
-                style={{
-                    display: "inline-block",
-                    padding: "12px 20px",
-                    backgroundColor: "var(--primary)",
-                    color: "white",
-                    borderRadius: "8px",
-                    textDecoration: "none",
-                    fontWeight: 600,
-                    fontSize: "14px",
-                }}
-            >
-                Manage users
-            </Link>
         </div>
     );
 }
