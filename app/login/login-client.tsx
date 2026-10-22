@@ -1,15 +1,16 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { DEV_USERS } from "@/src/config/devUsers";
 
 type LoginClientProps = {
   error: string | null;
+  // Passed from the server page only outside production, so the fixture
+  // list never lands in the production client bundle.
+  devUsers: { email: string; fullName: string; role: string }[];
 };
 
-export default function LoginClient({ error }: LoginClientProps) {
-  const isDev = process.env.NODE_ENV !== "production";
-  const devUsers = DEV_USERS;
+export default function LoginClient({ error, devUsers }: LoginClientProps) {
+  const isDev = devUsers.length > 0;
 
   let errorMessage: string | null = null;
   if (error === "AccessDenied") {

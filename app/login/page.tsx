@@ -1,4 +1,5 @@
 import LoginClient from "./login-client";
+import { DEV_USERS } from "@/src/config/devUsers";
 
 type LoginPageProps = {
   searchParams: Promise<{ error?: string }>;
@@ -6,5 +7,9 @@ type LoginPageProps = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
-  return <LoginClient error={params?.error ?? null} />;
+  const devUsers =
+    process.env.NODE_ENV !== "production"
+      ? DEV_USERS.map(({ email, fullName, role }) => ({ email, fullName, role }))
+      : [];
+  return <LoginClient error={params?.error ?? null} devUsers={devUsers} />;
 }
