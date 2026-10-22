@@ -339,7 +339,9 @@ export async function POST(request: Request) {
     include: { user: true },
   });
 
-  if (!teacher) {
+  // Requests can only be answered from a TEACHER account (dashboard, bell
+  // and accept/decline all gate on that role).
+  if (!teacher || (await resolveRole(teacher.user.email)) !== "TEACHER") {
     return new Response("Teacher not found", { status: 404 });
   }
 

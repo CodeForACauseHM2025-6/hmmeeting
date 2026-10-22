@@ -11,10 +11,9 @@ type TeacherOption = {
 
 type TeacherSearchProps = {
   teachers: TeacherOption[];
-  isAdmin?: boolean;
 };
 
-export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps) {
+export default function TeacherSearch({ teachers }: TeacherSearchProps) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<TeacherOption | null>(null);
   const router = useRouter();
@@ -67,7 +66,7 @@ export default function TeacherSearch({ teachers, isAdmin }: TeacherSearchProps)
           letterSpacing: "0.03em",
           color: "var(--muted)",
         }}>
-          {isAdmin ? "Search for a user" : "Search for a teacher"}
+          Search for a teacher
         </label>
         <input
           type="text"

@@ -28,46 +28,25 @@ export default async function TeachersPage() {
     await ensureDevUsers();
   }
 
-  const isAdmin = resolvedRole === "ADMIN";
-
-  // Admins see all users; students see only teachers
+  // Only teachers are bookable: the teacher-side dashboard, notifications and
+  // accept/decline all key off the TEACHER role, so a request sent to anyone
+  // else could never be answered in the app.
   const users = (
-    isAdmin
-      ? await prisma.user.findMany({ include: { teacher: true } })
-      : await prisma.user.findMany({ where: { role: "TEACHER" }, include: { teacher: true } })
+    await prisma.user.findMany({ where: { role: "TEACHER" }, include: { teacher: true } })
   ).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
-  // For admins: auto-create Teacher profiles for users who don't have one
-  // so the existing booking flow (which uses teacherId) works for everyone
   const userOptions: { id: string; fullName: string; email: string }[] = [];
-
   for (const user of users) {
-    // Skip the admin's own entry
     if (user.email === session.user.email) continue;
-
-    if (user.teacher) {
-      userOptions.push({
-        id: user.teacher.id,
-        fullName: user.fullName,
-        email: user.email,
-      });
-    } else if (isAdmin) {
-      // Auto-create a Teacher profile for this user so admin can book them
-      const teacher = await prisma.teacher.create({ data: { userId: user.id } });
-      userOptions.push({
-        id: teacher.id,
-        fullName: user.fullName,
-        email: user.email,
-      });
-    }
-    // For students: skip users without Teacher profile (already filtered by role=TEACHER)
+    // A teacher without a Teacher row hasn't set availability yet, so they
+    // have nothing bookable; skip rather than create rows on a GET.
+    if (!user.teacher) continue;
+    userOptions.push({ id: user.teacher.id, fullName: user.fullName, email: user.email });
   }
 
-  const heading = isAdmin ? "Find a User" : "Find a Teacher";
-  const subtitle = isAdmin
-    ? "Choose a user to view availability and request a meeting."
-    : "Choose a teacher to view availability and request a meeting.";
-  const emptyMessage = isAdmin ? "No users found yet." : "No teachers found yet.";
+  const heading = "Find a Teacher";
+  const subtitle = "Choose a teacher to view availability and request a meeting.";
+  const emptyMessage = "No teachers found yet.";
 
   return (
     <div style={{ padding: "48px 40px", maxWidth: "900px", margin: "0 auto" }}>
@@ -96,7 +75,7 @@ export default async function TeachersPage() {
           <p style={{ fontSize: "15px" }}>{emptyMessage}</p>
         </div>
       ) : (
-        <TeacherSearch teachers={userOptions} isAdmin={isAdmin} />
+        <TeacherSearch teachers={userOptions} />
       )}
     </div>
   );

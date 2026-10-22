@@ -23,7 +23,8 @@ export default function Sidebar({ role, isAuthenticated }: SidebarProps) {
 
     if (role === "ADMIN") {
       return [
-        { label: "Users", href: "/teachers" },
+        { label: "Dashboard", href: "/dashboard" },
+        { label: "Teachers", href: "/teachers" },
         { label: "User Directory", href: "/users" },
         { label: "Account Setup", href: "/account/setup" },
       ];
