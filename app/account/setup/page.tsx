@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { signOut } from 'next-auth/react';
 import { DAYS, PERIODS, type PeriodValue } from '@/src/config/schedule';
@@ -30,6 +30,9 @@ export default function SetNamePage() {
   const [saving, setSaving] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [lastSavedKey, setLastSavedKey] = useState('');
+  // Key of the last failed save; don't retry it until the user edits again,
+  // otherwise a 429/5xx turns the effect into an endless POST loop.
+  const [failedKey, setFailedKey] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
   const [role, setRole] = useState<'STUDENT' | 'TEACHER' | 'ADMIN'>('STUDENT');
 
@@ -41,8 +44,6 @@ export default function SetNamePage() {
 
   const { data: session, status } = useSession();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const viewUserEmail = searchParams.get('viewUser');
 
   const email = session?.user?.email ?? '';
 
@@ -168,7 +169,7 @@ export default function SetNamePage() {
         ? buildTeacherSaveKey(trimmedName, slotStates, defaultRoom)
         : buildStudentSaveKey(trimmedName, selectedSlots);
 
-    if (currentKey === lastSavedKey) return;
+    if (currentKey === lastSavedKey || currentKey === failedKey) return;
     if (saving) return;
 
     const timeout = setTimeout(async () => {
@@ -223,6 +224,7 @@ export default function SetNamePage() {
           setMessage('All changes saved.');
         }
       } catch (error) {
+        setFailedKey(currentKey);
         setMessage(`Error saving profile: ${error}`);
       } finally {
         setSaving(false);
@@ -230,7 +232,7 @@ export default function SetNamePage() {
     }, 600);
 
     return () => clearTimeout(timeout);
-  }, [fullName, selectedSlots, slotStates, defaultRoom, status, loadingProfile, hasInitialized, lastSavedKey, saving, role]);
+  }, [fullName, selectedSlots, slotStates, defaultRoom, status, loadingProfile, hasInitialized, lastSavedKey, failedKey, saving, role]);
 
   if (status === 'loading' || loadingProfile) {
     return (
@@ -247,8 +249,6 @@ export default function SetNamePage() {
     );
   }
 
-  const isViewOnly = !!viewUserEmail;
-
   return (
     <div style={{ padding: '48px 40px', maxWidth: '960px', margin: '0 auto' }}>
       <h1 style={{
@@ -259,7 +259,7 @@ export default function SetNamePage() {
         marginBottom: '32px',
         letterSpacing: '-0.02em',
       }}>
-        {isViewOnly ? 'User Schedule' : 'Account settings'}
+        Account settings
       </h1>
 
       {/* Profile info card */}
@@ -329,7 +329,7 @@ export default function SetNamePage() {
         </div>
 
         {/* Default Room input for teachers */}
-        {role === 'TEACHER' && !isViewOnly && (
+        {role === 'TEACHER' && (
           <div style={{ marginTop: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '12px', letterSpacing: '0.03em', color: 'var(--muted)' }}>
               Default room (for office hours)
@@ -363,7 +363,7 @@ export default function SetNamePage() {
       </div>
 
       {/* Teacher needs room before showing schedule */}
-      {role === 'TEACHER' && !defaultRoom.trim() && !isViewOnly && (
+      {role === 'TEACHER' && !defaultRoom.trim() && (
         <div style={{
           borderRadius: '14px',
           padding: '28px',
@@ -461,7 +461,6 @@ export default function SetNamePage() {
                               type="button"
                               className="slot-btn"
                               onClick={() => cycleSlot(day, period)}
-                              disabled={isViewOnly}
                               style={{
                                 width: '100%',
                                 padding: '6px 0',
@@ -471,7 +470,7 @@ export default function SetNamePage() {
                                 backgroundColor: bg,
                                 color,
                                 fontWeight: 600,
-                                cursor: isViewOnly ? 'default' : 'pointer',
+                                cursor: 'pointer',
                               }}
                             >
                               {label}
@@ -488,7 +487,6 @@ export default function SetNamePage() {
                             type="button"
                             className="slot-btn"
                             onClick={() => toggleSlot(day, period)}
-                            disabled={isViewOnly}
                             style={{
                               width: '100%',
                               padding: '8px 0',
@@ -498,7 +496,7 @@ export default function SetNamePage() {
                               color: active ? '#fff' : 'var(--muted)',
                               fontWeight: 600,
                               fontSize: '12px',
-                              cursor: isViewOnly ? 'default' : 'pointer',
+                              cursor: 'pointer',
                             }}
                           >
                             {active ? 'Free' : 'Busy'}
@@ -514,26 +512,24 @@ export default function SetNamePage() {
         </div>
       )}
 
-      {!isViewOnly && (
-        <button
-          type="button"
-          className="btn-fill"
-          onClick={() => signOut({ callbackUrl: '/login' })}
-          style={{
-            marginTop: '24px',
-            padding: '12px 20px',
-            fontSize: '14px',
-            backgroundColor: 'var(--primary)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontWeight: 600,
-          }}
-        >
-          Logout
-        </button>
-      )}
+      <button
+        type="button"
+        className="btn-fill"
+        onClick={() => signOut({ callbackUrl: '/login' })}
+        style={{
+          marginTop: '24px',
+          padding: '12px 20px',
+          fontSize: '14px',
+          backgroundColor: 'var(--primary)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '8px',
+          cursor: 'pointer',
+          fontWeight: 600,
+        }}
+      >
+        Logout
+      </button>
 
       {message && (
         <p style={{
