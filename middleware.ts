@@ -5,16 +5,24 @@ import { logSecurityEvent as logSec } from "@/src/server/security-log";
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const isProd = process.env.NODE_ENV === "production";
 
-// Per-IP global cap on /api/* (catch-all).
-const RATE_LIMIT_MAX = isProd ? 120 : 500;
+// Two layers of limits:
+//   - per session (signed-in users): the real per-person cap.
+//   - per IP: a much looser backstop. The whole school shares a handful of
+//     NAT'd public IPs, so per-IP caps sized for one person would lock out
+//     everyone on campus Wi-Fi. The backstop still bounds anonymous abuse and
+//     anyone rotating junk session cookies to dodge the per-session cap.
+const GLOBAL_LIMIT = { perSession: isProd ? 240 : 1000, perIp: isProd ? 3000 : 5000 };
 
-// Stricter caps on sensitive endpoints (state-changing or expensive).
-// Matched by URL prefix; first match wins.
-const SENSITIVE_LIMITS: { prefix: string; max: number }[] = [
-  { prefix: "/api/auth/", max: isProd ? 20 : 200 },
-  { prefix: "/api/send-meeting-email", max: isProd ? 10 : 100 },
-  { prefix: "/api/email-action", max: isProd ? 30 : 200 },
-  { prefix: "/api/user/appointments", max: isProd ? 30 : 200 },
+// Stricter caps on sensitive endpoints. Matched by URL prefix; first match
+// wins. `null` means "no extra limit beyond the global one".
+const SENSITIVE_LIMITS: { prefix: string; perSession: number | null; perIp: number }[] = [
+  // Session polling (SessionProvider refetches on focus) is cheap and frequent.
+  { prefix: "/api/auth/session", perSession: null, perIp: isProd ? 3000 : 5000 },
+  { prefix: "/api/auth/", perSession: null, perIp: isProd ? 300 : 1000 },
+  { prefix: "/api/send-meeting-email", perSession: isProd ? 10 : 100, perIp: isProd ? 100 : 500 },
+  // Email links are clicked without a session; per-IP only.
+  { prefix: "/api/email-action", perSession: null, perIp: isProd ? 120 : 500 },
+  { prefix: "/api/user/appointments", perSession: isProd ? 30 : 200, perIp: isProd ? 600 : 2000 },
 ];
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -30,25 +38,25 @@ function bumpAndCheck(key: string, max: number): boolean {
   return entry.count > max;
 }
 
-// Resolve the rate-limit key from headers when behind a trusted proxy.
+// Resolve the client IP from headers when behind a trusted proxy.
 //
 // Trust order (only applied when TRUST_PROXY=true):
-//   1. CF-Connecting-IP — Cloudflare always sets this to the real client
-//      and strips/replaces any inbound copy. Most reliable when behind CF.
-//   2. X-Real-IP — nginx sets this via `proxy_set_header X-Real-IP
-//      $remote_addr;`, which replaces inbound headers. Reliable when
-//      nginx is the immediate hop.
-//   3. Last entry of X-Forwarded-For — the one the trusted proxy
-//      appended. (First entry is attacker-controllable since nginx
-//      APPENDS rather than replaces XFF.)
+//   1. X-Real-IP — nginx sets this via `proxy_set_header X-Real-IP
+//      $remote_addr;`, which overwrites any inbound copy. Behind Cloudflare,
+//      nginx's realip module (real_ip_header CF-Connecting-IP, restricted to
+//      Cloudflare ranges) has already turned $remote_addr into the client IP.
+//   2. Last entry of X-Forwarded-For — the one the trusted proxy appended.
+//      (Earlier entries are attacker-controllable.)
+//
+// CF-Connecting-IP is deliberately NOT read here: if the origin is ever
+// reachable without Cloudflare in front, a client can send any value and get
+// a fresh rate-limit bucket per request.
 //
 // Without TRUST_PROXY, no header is trustworthy, so use a fixed key (per-IP
 // limit collapses to a global limit, which is the safe default until a
 // reverse proxy is configured correctly).
 function clientKey(request: NextRequest): string {
   if (process.env.TRUST_PROXY === "true") {
-    const cf = request.headers.get("cf-connecting-ip");
-    if (cf) return cf.trim();
     const real = request.headers.get("x-real-ip");
     if (real) return real.trim();
     const xff = request.headers.get("x-forwarded-for");
@@ -59,6 +67,24 @@ function clientKey(request: NextRequest): string {
     }
   }
   return "unknown";
+}
+
+// Per-session key from the Auth.js session cookie (possibly chunked as
+// `.0`, `.1`, ...). We don't verify it here — that's too expensive for every
+// request — so a forged cookie just gets its own bucket and falls back on the
+// per-IP backstop.
+function sessionKey(request: NextRequest): string | null {
+  for (const name of [
+    "__Secure-authjs.session-token",
+    "authjs.session-token",
+    "__Secure-authjs.session-token.0",
+    "authjs.session-token.0",
+  ]) {
+    const value = request.cookies.get(name)?.value;
+    // The tail of the JWE (auth tag) is unique per token and keeps keys short.
+    if (value) return value.slice(-32);
+  }
+  return null;
 }
 
 // Clean up stale entries periodically
@@ -88,20 +114,24 @@ export function middleware(request: NextRequest) {
       return new NextResponse("Payload too large", { status: 413 });
     }
 
-    // Global per-IP limit
-    if (bumpAndCheck(`g:${ip}`, RATE_LIMIT_MAX)) {
-      logSec({ event: "ratelimit.global", severity: "warn", ip, detail: path });
-      return new NextResponse("Too Many Requests", { status: 429 });
+    const sess = sessionKey(request);
+    const rule = SENSITIVE_LIMITS.find(({ prefix }) => path.startsWith(prefix));
+    const checks: { key: string; max: number; event: string }[] = [
+      { key: `g:ip:${ip}`, max: GLOBAL_LIMIT.perIp, event: "ratelimit.global" },
+    ];
+    if (sess) {
+      checks.push({ key: `g:s:${sess}`, max: GLOBAL_LIMIT.perSession, event: "ratelimit.global" });
     }
-    // Stricter limits on sensitive endpoints (per-IP only — session lookup
-    // is too expensive to do in middleware on every request).
-    for (const { prefix, max } of SENSITIVE_LIMITS) {
-      if (path.startsWith(prefix)) {
-        if (bumpAndCheck(`s:${prefix}:${ip}`, max)) {
-          logSec({ event: "ratelimit.sensitive", severity: "warn", ip, detail: prefix });
-          return new NextResponse("Too Many Requests", { status: 429 });
-        }
-        break;
+    if (rule) {
+      checks.push({ key: `s:${rule.prefix}:ip:${ip}`, max: rule.perIp, event: "ratelimit.sensitive" });
+      if (sess && rule.perSession !== null) {
+        checks.push({ key: `s:${rule.prefix}:s:${sess}`, max: rule.perSession, event: "ratelimit.sensitive" });
+      }
+    }
+    for (const { key, max, event } of checks) {
+      if (bumpAndCheck(key, max)) {
+        logSec({ event, severity: "warn", ip, detail: rule?.prefix ?? path });
+        return new NextResponse("Too Many Requests", { status: 429 });
       }
     }
   }
