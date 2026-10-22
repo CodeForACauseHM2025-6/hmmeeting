@@ -4,7 +4,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
 import { PERIODS, type PeriodValue } from "@/src/config/schedule";
-import { resolveRole } from "@/src/config/roles";
+import { canHost, resolveRole } from "@/src/config/roles";
 
 type AvailabilityInput = {
   day: number;
@@ -24,7 +24,7 @@ async function getTeacherForSession(email: string) {
   }
 
   const resolvedRole = await resolveRole(email);
-  if (resolvedRole !== "TEACHER") {
+  if (!canHost(resolvedRole)) {
     return { error: new Response("Forbidden", { status: 403 }) };
   }
 

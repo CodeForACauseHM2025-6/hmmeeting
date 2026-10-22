@@ -89,11 +89,13 @@ export async function GET() {
   const role = await resolveRole(session.user.email);
   const scheduleSettings = await getScheduleSnapshot();
 
-  if (role === "ADMIN") {
+  // Admins who teach (have a Teacher profile) get the host feed — requests
+  // made to them. Other admins have no feed.
+  if (role === "ADMIN" && !user.teacher) {
     return Response.json([]);
   }
 
-  if (role === "TEACHER") {
+  if (role === "TEACHER" || role === "ADMIN") {
     let teacherId = user.teacher?.id;
     if (!teacherId) {
       const teacher = await prisma.teacher.create({ data: { userId: user.id } });

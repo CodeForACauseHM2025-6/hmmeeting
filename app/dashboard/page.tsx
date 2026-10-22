@@ -75,6 +75,14 @@ export default function DashboardPage() {
         // Admins book meetings like students (the appointments API returns
         // their bookings in the booker shape), so they get the same view.
         case "ADMIN":
+            // Admins book like students, and admins who teach also receive
+            // requests — the host section renders only if they have any.
+            return (
+                <>
+                    <StudentDashboard firstName={firstName} />
+                    <TeacherDashboard firstName={firstName} adminHostSection />
+                </>
+            );
         case "STUDENT":
             return <StudentDashboard firstName={firstName} />;
         case "TEACHER":
@@ -590,7 +598,9 @@ function StudentDashboard({ firstName }: { firstName: string }) {
 }
 
 // TODO: Design this on Fi
-function TeacherDashboard({ firstName }: { firstName: string }) {
+// `adminHostSection`: rendered under an admin's booker dashboard, showing only
+// requests made *to* the admin (hidden when there are none).
+function TeacherDashboard({ firstName, adminHostSection = false }: { firstName: string; adminHostSection?: boolean }) {
     const [appointments, setAppointments] = useState<
         {
             id: string;
@@ -611,7 +621,7 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
     const [responses, setResponses] = useState<Record<string, { room: string; note: string }>>({});
 
     useEffect(() => {
-        fetch("/api/user/appointments")
+        fetch(adminHostSection ? "/api/user/appointments?as=host" : "/api/user/appointments")
             .then((res) => (res.ok ? res.json() : []))
             .then((data) => {
                 if (Array.isArray(data)) {
@@ -619,7 +629,7 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                 }
             })
             .catch(() => undefined);
-    }, []);
+    }, [adminHostSection]);
 
     const updateResponse = (id: string, field: "room" | "note", value: string) => {
         setResponses((prev) => ({
@@ -707,8 +717,13 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
         setActionMessage(successMessage);
     };
 
+    if (adminHostSection && appointments.length === 0) {
+        return null;
+    }
+
     return (
-        <div style={{ padding: "48px 40px", maxWidth: "960px", margin: "0 auto" }}>
+        <div style={{ padding: adminHostSection ? "0 40px 48px" : "48px 40px", maxWidth: "960px", margin: "0 auto" }}>
+            {!adminHostSection && (<>
             <h1 style={{
                 fontFamily: "var(--font-lora, Georgia, serif)",
                 fontSize: "36px",
@@ -740,6 +755,7 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
             >
                 Update availability
             </Link>
+            </>)}
 
             {/* Meetings card */}
             <div style={{
@@ -756,7 +772,7 @@ function TeacherDashboard({ firstName }: { firstName: string }) {
                     marginBottom: "20px",
                     color: "var(--foreground)",
                 }}>
-                    Upcoming meetings
+                    {adminHostSection ? "Requests to you" : "Upcoming meetings"}
                 </h2>
                 {actionMessage && (
                     <div style={{ color: "var(--primary)", fontSize: "14px", fontWeight: 500, marginBottom: "12px" }}>{actionMessage}</div>

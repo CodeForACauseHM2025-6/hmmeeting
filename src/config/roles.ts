@@ -43,3 +43,17 @@ export async function resolveRole(email: string): Promise<RoleValue> {
 
   return "STUDENT";
 }
+
+/**
+ * Who can be booked (receive and answer meeting requests). Admins can too,
+ * because some administrators also teach; an admin only shows up as bookable
+ * once they've marked availability.
+ */
+export function canHost(role: RoleValue): boolean {
+  return role === "TEACHER" || role === "ADMIN";
+}
+
+/** Who can book meetings with a host. */
+export function canBook(role: RoleValue): boolean {
+  return role === "STUDENT" || role === "ADMIN";
+}

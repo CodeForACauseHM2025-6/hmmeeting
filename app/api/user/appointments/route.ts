@@ -11,7 +11,7 @@ import {
   formatMeetingDateTime,
   type PeriodValue,
 } from "@/src/config/schedule";
-import { resolveRole } from "@/src/config/roles";
+import { canBook, canHost, resolveRole } from "@/src/config/roles";
 
 type AppointmentPayload = {
   teacherId: string;
@@ -101,7 +101,7 @@ async function autoCompleteAppointments(
   return true;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.email) {
     return new Response("Unauthorized", { status: 401 });
@@ -119,7 +119,13 @@ export async function GET() {
   const resolvedRole = await resolveRole(session.user.email);
   const scheduleSettings = await getScheduleSnapshot();
 
-  if (resolvedRole === "TEACHER") {
+  // Teachers always get the host view. Admins are both: the booker view by
+  // default, and the host view (requests made to them) with ?as=host.
+  const asHost =
+    resolvedRole === "TEACHER" ||
+    (resolvedRole === "ADMIN" && new URL(request.url).searchParams.get("as") === "host");
+
+  if (asHost) {
     let teacherId = user.teacher?.id;
     if (!teacherId) {
       const teacher = await prisma.teacher.create({ data: { userId: user.id } });
@@ -181,64 +187,7 @@ export async function GET() {
     );
   }
 
-  // Admins see their appointments as a booker (same as students)
-  if (resolvedRole === "ADMIN") {
-    let adminAppointments = await prisma.appointment.findMany({
-      where: bookerVisibleWhere(user.id),
-      include: { teacher: { include: { user: true } } },
-      orderBy: [{ day: "asc" }, { period: "asc" }],
-    });
-
-    const didAutoCompleteAdmin = await autoCompleteAppointments(
-      adminAppointments.map((appointment) => ({
-        id: appointment.id,
-        status: appointment.status,
-        day: appointment.day,
-        period: appointment.period,
-        createdAt: appointment.createdAt,
-      })),
-      scheduleSettings
-    );
-
-    if (didAutoCompleteAdmin) {
-      adminAppointments = await prisma.appointment.findMany({
-        where: bookerVisibleWhere(user.id),
-        include: { teacher: { include: { user: true } } },
-        orderBy: [{ day: "asc" }, { period: "asc" }],
-      });
-    }
-
-    return Response.json(
-      adminAppointments.map((appointment) => ({
-        ...(() => {
-          const meetingInfo = getMeetingInfoForAppointment(
-            {
-              day: appointment.day,
-              period: appointment.period,
-              createdAt: appointment.createdAt,
-            },
-            scheduleSettings
-          );
-          return {
-            meetingDate: meetingInfo?.dateLabel ?? null,
-            meetingTime: meetingInfo?.timeLabel ?? null,
-          };
-        })(),
-        id: appointment.id,
-        day: appointment.day,
-        period: appointment.period,
-        status: appointment.status,
-        completedBy: appointment.completedBy,
-        room: appointment.room,
-        studentNote: appointment.studentNote,
-        teacherNote: appointment.teacherNote,
-        studentAcknowledgedAt: appointment.studentAcknowledgedAt,
-        teacherName: appointment.teacher.user.fullName,
-        teacherEmail: appointment.teacher.user.email,
-      }))
-    );
-  }
-
+  // Students and admins (booker view)
   let appointments = await prisma.appointment.findMany({
     where: bookerVisibleWhere(user.id),
     include: { teacher: { include: { user: true } } },
@@ -330,7 +279,7 @@ export async function POST(request: Request) {
   }
 
   const resolvedRole = await resolveRole(session.user.email);
-  if (resolvedRole !== "STUDENT" && resolvedRole !== "ADMIN") {
+  if (!canBook(resolvedRole)) {
     return new Response("Only students and admins can book meetings", { status: 403 });
   }
 
@@ -339,10 +288,12 @@ export async function POST(request: Request) {
     include: { user: true },
   });
 
-  // Requests can only be answered from a TEACHER account (dashboard, bell
-  // and accept/decline all gate on that role).
-  if (!teacher || (await resolveRole(teacher.user.email)) !== "TEACHER") {
+  // Only hosts (teachers, and admins who teach) can answer requests.
+  if (!teacher || !canHost(await resolveRole(teacher.user.email))) {
     return new Response("Teacher not found", { status: 404 });
+  }
+  if (teacher.userId === student.id) {
+    return new Response("You can't book a meeting with yourself", { status: 400 });
   }
 
   // Only periods the teacher has marked free (or as office hours) are
@@ -567,9 +518,14 @@ export async function PATCH(request: Request) {
     }
     return teacherId;
   };
+  const sideOf = (appt: { studentId: string; teacherId: string }): "STUDENT" | "TEACHER" | null => {
+    if (canBook(resolvedRole) && appt.studentId === user.id) return "STUDENT";
+    if (canHost(resolvedRole) && user.teacher && appt.teacherId === user.teacher.id) return "TEACHER";
+    return null;
+  };
 
   if (action === "confirm") {
-    if (resolvedRole !== "TEACHER") {
+    if (!canHost(resolvedRole)) {
       return new Response("Not found", { status: 404 });
     }
     const teacherId = await resolveTeacherId();
@@ -621,7 +577,7 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "decline") {
-    if (resolvedRole !== "TEACHER") {
+    if (!canHost(resolvedRole)) {
       return new Response("Not found", { status: 404 });
     }
     const teacherId = await resolveTeacherId();
@@ -675,19 +631,13 @@ export async function PATCH(request: Request) {
   if (action === "complete") {
     // Ownership check up front so a non-owner can't distinguish
     // CONFIRMED vs PENDING (status oracle).
-    const isBooker = resolvedRole === "STUDENT" || resolvedRole === "ADMIN";
-    if (isBooker) {
-      if (appointment.studentId !== user.id) {
-        return new Response("Not found", { status: 404 });
-      }
-    } else if (resolvedRole === "TEACHER") {
-      const teacherId = await resolveTeacherId();
-      if (appointment.teacherId !== teacherId) {
-        return new Response("Not found", { status: 404 });
-      }
-    } else {
+    // Side is decided by which end of the appointment this user is on —
+    // admins can be either the booker or the host.
+    const side = sideOf(appointment);
+    if (!side) {
       return new Response("Not found", { status: 404 });
     }
+    const isBooker = side === "STUDENT";
 
     const { count } = await prisma.appointment.updateMany({
       where: { id, status: "CONFIRMED" },
@@ -705,19 +655,13 @@ export async function PATCH(request: Request) {
   }
 
   if (action === "cancel") {
-    const isBooker = resolvedRole === "STUDENT" || resolvedRole === "ADMIN";
-    if (isBooker) {
-      if (appointment.studentId !== user.id) {
-        return new Response("Not found", { status: 404 });
-      }
-    } else if (resolvedRole === "TEACHER") {
-      const teacherId = await resolveTeacherId();
-      if (appointment.teacherId !== teacherId) {
-        return new Response("Not found", { status: 404 });
-      }
-    } else {
+    // Side is decided by which end of the appointment this user is on —
+    // admins can be either the booker or the host.
+    const side = sideOf(appointment);
+    if (!side) {
       return new Response("Not found", { status: 404 });
     }
+    const isBooker = side === "STUDENT";
 
     const { count } = await prisma.appointment.updateMany({
       where: { id, status: { in: ["PENDING", "CONFIRMED"] } },
@@ -778,58 +722,27 @@ export async function PATCH(request: Request) {
   if (action === "acknowledge") {
     // Ownership check up front so an outsider can't distinguish "exists but
     // wrong status" from "doesn't exist".
-    const isOwner =
-      ((resolvedRole === "STUDENT" || resolvedRole === "ADMIN") && appointment.studentId === user.id) ||
-      (resolvedRole === "TEACHER" && user.teacher?.id !== undefined && appointment.teacherId === user.teacher.id);
-    if (!isOwner) {
+    const side = sideOf(appointment);
+    if (!side) {
       return new Response("Not found", { status: 404 });
     }
 
     if (appointment.status === "CANCELLED") {
-      if (resolvedRole === "STUDENT" || resolvedRole === "ADMIN") {
-        // Booker acknowledges a cancellation from the teacher side
-        if (appointment.studentId !== user.id || appointment.studentCancelled) {
-          return new Response("Not found", { status: 404 });
-        }
-        const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(sanitizeAppointmentForClient(deleted));
+      // Each side acknowledges a cancellation made by the other side.
+      const cancelledByOtherSide =
+        side === "STUDENT" ? !appointment.studentCancelled : appointment.studentCancelled;
+      if (!cancelledByOtherSide) {
+        return new Response("Not found", { status: 404 });
       }
-
-      if (resolvedRole === "TEACHER") {
-        const teacherId = await resolveTeacherId();
-        if (appointment.teacherId !== teacherId || !appointment.studentCancelled) {
-          return new Response("Not found", { status: 404 });
-        }
-        const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(sanitizeAppointmentForClient(deleted));
-      }
-
-      return new Response("Not found", { status: 404 });
+      const deleted = await prisma.appointment.delete({ where: { id } });
+      return Response.json(sanitizeAppointmentForClient(deleted));
     }
 
     if (appointment.status === "COMPLETED") {
-      if (resolvedRole === "STUDENT" || resolvedRole === "ADMIN") {
-        if (appointment.studentId !== user.id) {
-          return new Response("Not found", { status: 404 });
-        }
-        if (appointment.completedBy === "STUDENT") {
-          return new Response("Not found", { status: 404 });
-        }
-        return acknowledgeCompleted(id, appointment.completedBy, "STUDENT");
+      if (appointment.completedBy === side) {
+        return new Response("Not found", { status: 404 });
       }
-
-      if (resolvedRole === "TEACHER") {
-        const teacherId = await resolveTeacherId();
-        if (appointment.teacherId !== teacherId) {
-          return new Response("Not found", { status: 404 });
-        }
-        if (appointment.completedBy === "TEACHER") {
-          return new Response("Not found", { status: 404 });
-        }
-        return acknowledgeCompleted(id, appointment.completedBy, "TEACHER");
-      }
-
-      return new Response("Not found", { status: 404 });
+      return acknowledgeCompleted(id, appointment.completedBy, side);
     }
 
     return new Response("Only cancelled or completed meetings can be acknowledged", {

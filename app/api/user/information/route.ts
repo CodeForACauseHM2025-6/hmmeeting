@@ -3,7 +3,7 @@
 
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
-import { resolveRole } from "@/src/config/roles";
+import { canHost, resolveRole } from "@/src/config/roles";
 import type { RoleValue } from "@/src/config/roles";
 import { DAYS, PERIODS, type PeriodValue } from "@/src/config/schedule";
 
@@ -56,7 +56,7 @@ export async function GET(request: Request) {
         });
     }
 
-    if (resolvedRole === "TEACHER") {
+    if (canHost(resolvedRole)) {
         await prisma.teacher.upsert({
             where: { userId: user.id },
             create: { userId: user.id },
@@ -110,7 +110,7 @@ export async function POST(request: Request) {
 
     let teacherId: string | null = null;
 
-    if (role === "TEACHER") {
+    if (canHost(role)) {
         const teacherUpdate: { room?: string } = {};
         if (room !== undefined) {
             teacherUpdate.room = room || null;
@@ -123,6 +123,9 @@ export async function POST(request: Request) {
         teacherId = teacher.id;
     }
 
+    // Admins edit one teacher-style grid; their free periods are mirrored into
+    // StudentAvailability so the "you're both free" overlay still works when
+    // they book someone else.
     if (role === "STUDENT" || role === "ADMIN") {
         const validFreePeriods = freePeriods.filter(
             (period) =>
@@ -153,7 +156,7 @@ export async function POST(request: Request) {
         }
     }
 
-    if (role === "TEACHER" && teacherId) {
+    if (canHost(role) && teacherId) {
         const validAvailability = freePeriods.filter(
             (period) =>
                 typeof period.day === "number" &&

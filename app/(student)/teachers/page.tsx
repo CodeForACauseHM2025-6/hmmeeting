@@ -28,18 +28,26 @@ export default async function TeachersPage() {
     await ensureDevUsers();
   }
 
-  // Only teachers are bookable: the teacher-side dashboard, notifications and
-  // accept/decline all key off the TEACHER role, so a request sent to anyone
-  // else could never be answered in the app.
+  // Bookable hosts: every teacher, plus admins who teach — i.e. admins who
+  // have marked at least one period available. Admins who don't teach leave
+  // their grid empty and never appear here.
   const users = (
-    await prisma.user.findMany({ where: { role: "TEACHER" }, include: { teacher: true } })
+    await prisma.user.findMany({
+      where: {
+        OR: [
+          { role: "TEACHER" },
+          { role: "ADMIN", teacher: { availability: { some: {} } } },
+        ],
+      },
+      include: { teacher: true },
+    })
   ).sort((a, b) => a.fullName.localeCompare(b.fullName));
 
   const userOptions: { id: string; fullName: string; email: string }[] = [];
   for (const user of users) {
     if (user.email === session.user.email) continue;
-    // A teacher without a Teacher row hasn't set availability yet, so they
-    // have nothing bookable; skip rather than create rows on a GET.
+    // No Teacher row means no availability yet, so nothing is bookable; skip
+    // rather than create rows on a GET.
     if (!user.teacher) continue;
     userOptions.push({ id: user.teacher.id, fullName: user.fullName, email: user.email });
   }

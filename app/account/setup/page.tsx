@@ -35,6 +35,10 @@ export default function SetNamePage() {
   const [failedKey, setFailedKey] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
   const [role, setRole] = useState<'STUDENT' | 'TEACHER' | 'ADMIN'>('STUDENT');
+  const isHost = role === 'TEACHER' || role === 'ADMIN';
+  // Teachers must set a room before their grid appears; it's optional for
+  // admins, many of whom don't teach.
+  const needsRoom = role === 'TEACHER' && !defaultRoom.trim();
 
   useEffect(() => {
     if (!loadingProfile) {
@@ -75,7 +79,9 @@ export default function SetNamePage() {
       setFullName(resolvedName);
       setRole(resolvedRole);
 
-      if (resolvedRole === 'TEACHER') {
+      // Admins use the teacher-style grid too: some of them teach, and these
+      // periods are what students can book.
+      if (resolvedRole === 'TEACHER' || resolvedRole === 'ADMIN') {
         const stateMap = new Map<string, SlotState>();
         if (Array.isArray(data?.teacher?.availability)) {
           for (const slot of data.teacher.availability) {
@@ -83,7 +89,9 @@ export default function SetNamePage() {
             stateMap.set(key, slot.type === 'OFFICE_HOURS' ? 'OFFICE_HOURS' : 'FREE');
           }
         }
-        if (stateMap.size === 0) {
+        // Teachers start with breaks free. Admins start empty so an admin who
+        // doesn't teach never becomes bookable by accident.
+        if (stateMap.size === 0 && resolvedRole === 'TEACHER') {
           for (const day of DAYS) {
             stateMap.set(`${day}-BREAK`, 'FREE');
           }
@@ -165,7 +173,7 @@ export default function SetNamePage() {
     if (!trimmedName) return;
 
     const currentKey =
-      role === 'TEACHER'
+      isHost
         ? buildTeacherSaveKey(trimmedName, slotStates, defaultRoom)
         : buildStudentSaveKey(trimmedName, selectedSlots);
 
@@ -178,7 +186,7 @@ export default function SetNamePage() {
 
       try {
         let freePeriods: FreePeriod[];
-        if (role === 'TEACHER') {
+        if (isHost) {
           freePeriods = Array.from(slotStates.entries()).map(([key, type]) => {
             const [dayString, period] = key.split('-');
             return { day: Number(dayString), period: period as PeriodValue, type };
@@ -195,7 +203,7 @@ export default function SetNamePage() {
           freePeriods,
         };
 
-        if (role === 'TEACHER') {
+        if (isHost) {
           bodyPayload.room = defaultRoom.trim();
         }
 
@@ -216,7 +224,7 @@ export default function SetNamePage() {
         }
 
         const latestKey =
-          role === 'TEACHER'
+          isHost
             ? buildTeacherSaveKey(trimmedName, slotStates, defaultRoom)
             : buildStudentSaveKey(trimmedName, selectedSlots);
         if (latestKey === currentKey) {
@@ -232,7 +240,7 @@ export default function SetNamePage() {
     }, 600);
 
     return () => clearTimeout(timeout);
-  }, [fullName, selectedSlots, slotStates, defaultRoom, status, loadingProfile, hasInitialized, lastSavedKey, failedKey, saving, role]);
+  }, [fullName, selectedSlots, slotStates, defaultRoom, status, loadingProfile, hasInitialized, lastSavedKey, failedKey, saving, isHost]);
 
   if (status === 'loading' || loadingProfile) {
     return (
@@ -328,8 +336,8 @@ export default function SetNamePage() {
           </div>
         </div>
 
-        {/* Default Room input for teachers */}
-        {role === 'TEACHER' && (
+        {/* Default Room input for hosts (teachers and admins) */}
+        {isHost && (
           <div style={{ marginTop: '16px' }}>
             <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '12px', letterSpacing: '0.03em', color: 'var(--muted)' }}>
               Default room (for office hours)
@@ -344,12 +352,12 @@ export default function SetNamePage() {
                 maxWidth: '280px',
                 padding: '10px 14px',
                 fontSize: '14px',
-                border: !defaultRoom.trim() ? '2px solid var(--danger)' : '1px solid var(--border)',
+                border: needsRoom ? '2px solid var(--danger)' : '1px solid var(--border)',
                 borderRadius: '8px',
-                boxShadow: !defaultRoom.trim() ? '0 0 0 3px rgba(185, 28, 28, 0.1)' : undefined,
+                boxShadow: needsRoom ? '0 0 0 3px rgba(185, 28, 28, 0.1)' : undefined,
               }}
             />
-            {!defaultRoom.trim() ? (
+            {needsRoom ? (
               <p style={{ color: 'var(--danger)', fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>
                 Room number is required to set your schedule
               </p>
@@ -363,7 +371,7 @@ export default function SetNamePage() {
       </div>
 
       {/* Teacher needs room before showing schedule */}
-      {role === 'TEACHER' && !defaultRoom.trim() && (
+      {needsRoom && (
         <div style={{
           borderRadius: '14px',
           padding: '28px',
@@ -378,7 +386,7 @@ export default function SetNamePage() {
       )}
 
       {/* Schedule grid */}
-      {(role === 'STUDENT' || role === 'TEACHER' || role === 'ADMIN') && (role !== 'TEACHER' || defaultRoom.trim()) && (
+      {!needsRoom && (
         <div style={{
           borderRadius: '14px',
           padding: '28px',
@@ -393,16 +401,18 @@ export default function SetNamePage() {
             marginBottom: '6px',
             color: 'var(--foreground)',
           }}>
-            {role === 'TEACHER' ? 'Select your available periods' : 'Select your free periods'}
+            {isHost ? 'Select your available periods' : 'Select your free periods'}
           </h2>
           <p style={{ color: 'var(--muted)', fontSize: '14px', marginBottom: '20px' }}>
             {role === 'TEACHER'
               ? 'Tap the periods you are available to meet. Students will only see periods you select.'
+              : role === 'ADMIN'
+              ? 'If you teach, tap the periods you are available to meet — you\'ll appear in the Teachers list once any period is marked. Leave it empty if you don\'t take meetings.'
               : 'Tap the periods you are available to meet. This will be used to match with teacher availability.'}
           </p>
 
           {/* Color legend for teachers */}
-          {role === 'TEACHER' && (
+          {isHost && (
             <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ width: '20px', height: '20px', borderRadius: '4px', border: '2px solid var(--border)', background: 'var(--surface)' }} />
@@ -438,7 +448,7 @@ export default function SetNamePage() {
                     {DAYS.map((day) => {
                       const key = `${day}-${period}`;
 
-                      if (role === 'TEACHER') {
+                      if (isHost) {
                         const state = slotStates.get(key);
                         let bg = 'var(--surface)';
                         let color = 'var(--muted)';

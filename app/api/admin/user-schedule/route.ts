@@ -1,6 +1,6 @@
 import { auth } from "@/auth";
 import { prisma } from "@/src/server/db";
-import { resolveRole } from "@/src/config/roles";
+import { canHost, resolveRole } from "@/src/config/roles";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   // Build schedule: array of { day, period, type }
   let schedule: { day: number; period: string; type: string }[] = [];
 
-  if (userRole === "TEACHER" && user.teacher) {
+  if (canHost(userRole) && user.teacher) {
     schedule = user.teacher.availability.map((slot) => ({
       day: slot.day,
       period: slot.period,
