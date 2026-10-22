@@ -64,8 +64,9 @@ load_env() {
 # ----------------------------------------------------------
 pm2_fresh_start() {
     pm2 delete hmmeeting 2>/dev/null || true
-    NODE_ENV=production HOSTNAME=127.0.0.1 TRUST_PROXY=true \
-        pm2 start npm --name "hmmeeting" -- start
+    # `next start` ignores HOSTNAME; pass -H so it really binds to loopback.
+    NODE_ENV=production TRUST_PROXY=true \
+        pm2 start npm --name "hmmeeting" -- start -- -H 127.0.0.1
     pm2 save
 }
 
