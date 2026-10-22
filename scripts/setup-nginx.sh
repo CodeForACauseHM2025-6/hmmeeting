@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Idempotent nginx setup for scheduler.mtrokel.org on a Linode VM behind
+# Idempotent nginx setup for meeting.mtrokel.org on a Linode VM behind
 # Cloudflare. Installs nginx if missing, drops in a server block for the
 # scheduler app on 127.0.0.1:3000, redirects HTTP→HTTPS, locks down the
 # default catch-all, and reloads nginx.
@@ -8,18 +8,18 @@
 #   - You have a Cloudflare Origin Certificate at:
 #       /etc/ssl/cloudflare/origin.pem  (cert)
 #       /etc/ssl/cloudflare/origin.key  (key, mode 600)
-#   - DNS for scheduler.mtrokel.org points (orange-cloud) at this VM
+#   - DNS for meeting.mtrokel.org points (orange-cloud) at this VM
 #   - Cloudflare SSL/TLS mode is "Full (strict)"
 #
 # Usage:
 #   sudo bash scripts/setup-nginx.sh
 #
 # Override defaults by env:
-#   DOMAIN=scheduler.mtrokel.org APP_PORT=3000 sudo -E bash scripts/setup-nginx.sh
+#   DOMAIN=meeting.mtrokel.org APP_PORT=3000 sudo -E bash scripts/setup-nginx.sh
 
 set -euo pipefail
 
-DOMAIN="${DOMAIN:-scheduler.mtrokel.org}"
+DOMAIN="${DOMAIN:-meeting.mtrokel.org}"
 APP_PORT="${APP_PORT:-3000}"
 CERT="${CERT:-/etc/ssl/cloudflare/origin.pem}"
 KEY="${KEY:-/etc/ssl/cloudflare/origin.key}"
@@ -94,7 +94,7 @@ ln -sf /etc/nginx/sites-available/01-default-https /etc/nginx/sites-enabled/01-d
 
 # ---------------------------------------------------------------- scheduler vhost
 cat > "/etc/nginx/sites-available/$DOMAIN" <<EOF
-# scheduler.mtrokel.org -> Next.js app on 127.0.0.1:$APP_PORT
+# meeting.mtrokel.org -> Next.js app on 127.0.0.1:$APP_PORT
 # (http2 is declared once on the default_server above; this vhost
 # inherits it for the same ip:port — repeating it would warn.)
 server {
