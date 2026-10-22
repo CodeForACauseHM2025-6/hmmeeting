@@ -12,9 +12,22 @@ const KEY_LENGTH = 32; // 256 bits
 // Two HKDF-derived subkeys — never reuse the master key directly.
 // Random-IV encryption and deterministic-IV encryption are kept on separate
 // keys so an IV-reuse mistake on one mode can't compromise the other.
-let randomKey: Buffer | null = null;
-let deterministicKey: Buffer | null = null;
-let initialized = false;
+//
+// Key state lives on globalThis, not in module scope: Next bundles
+// instrumentation.ts and route handlers separately, so each gets its own copy
+// of this module. Module-level `let`s would leave the route handlers' copy
+// keyless (silently writing plaintext) even after instrumentation ran init.
+type KeyState = {
+  randomKey: Buffer | null;
+  deterministicKey: Buffer | null;
+  initPromise: Promise<void> | null;
+};
+const g = globalThis as typeof globalThis & { __hmEncryptionKeys?: KeyState };
+const state: KeyState = (g.__hmEncryptionKeys ??= {
+  randomKey: null,
+  deterministicKey: null,
+  initPromise: null,
+});
 
 function deriveSubkey(master: Buffer, label: string): Buffer {
   // HKDF with empty salt; label binds the subkey to its purpose.
@@ -31,9 +44,17 @@ function deriveSubkey(master: Buffer, label: string): Buffer {
  * In production, refuses to complete unless a key is loaded — the app should
  * fail to boot rather than silently write plaintext.
  */
-export async function initEncryption(): Promise<void> {
-  if (initialized) return;
+export function initEncryption(): Promise<void> {
+  // Memoize the in-flight promise so concurrent callers share one AWS fetch;
+  // clear it on failure so a transient error can be retried.
+  state.initPromise ??= loadKeys().catch((err) => {
+    state.initPromise = null;
+    throw err;
+  });
+  return state.initPromise;
+}
 
+async function loadKeys(): Promise<void> {
   const secretName = process.env.AWS_SECRET_NAME;
   const region = process.env.AWS_REGION;
   let masterKey: Buffer | null = null;
@@ -67,15 +88,13 @@ export async function initEncryption(): Promise<void> {
         `Encryption key too short: expected ${KEY_LENGTH} bytes, got ${masterKey.length}`
       );
     }
-    randomKey = deriveSubkey(masterKey, "hmmeeting:random:v1");
-    deterministicKey = deriveSubkey(masterKey, "hmmeeting:deterministic:v1");
+    state.randomKey = deriveSubkey(masterKey, "hmmeeting:random:v1");
+    state.deterministicKey = deriveSubkey(masterKey, "hmmeeting:deterministic:v1");
   } else if (process.env.NODE_ENV === "production") {
     throw new Error(
       "Refusing to start: encryption key is not configured. Set AWS_SECRET_NAME+AWS_REGION or ENCRYPTION_KEY."
     );
   }
-
-  initialized = true;
 }
 
 // Ciphertext layout: 1-byte version tag || IV (12B) || authTag (16B) || ciphertext.
@@ -89,7 +108,11 @@ const VERSION_DETERMINISTIC = 0x02;
  * Use for: fullName, studentNote, teacherNote, room.
  */
 export function encrypt(plaintext: string): string {
-  if (!randomKey) return plaintext;
+  const randomKey = state.randomKey;
+  if (!randomKey) {
+    assertNotProduction();
+    return plaintext;
+  }
   const iv = crypto.randomBytes(IV_LENGTH);
   const cipher = crypto.createCipheriv(ALGORITHM, randomKey, iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
@@ -102,7 +125,11 @@ export function encrypt(plaintext: string): string {
  * constraints and WHERE lookups still work). Use for: email.
  */
 export function encryptDeterministic(plaintext: string): string {
-  if (!deterministicKey) return plaintext;
+  const deterministicKey = state.deterministicKey;
+  if (!deterministicKey) {
+    assertNotProduction();
+    return plaintext;
+  }
   const iv = crypto
     .createHmac("sha256", deterministicKey)
     .update(plaintext.toLowerCase())
@@ -124,6 +151,7 @@ export function encryptDeterministic(plaintext: string): string {
  * migration script after upgrading.
  */
 export function decrypt(ciphertext: string): string {
+  const { randomKey, deterministicKey } = state;
   if (!randomKey || !deterministicKey) return ciphertext;
   const data = Buffer.from(ciphertext, "base64");
   if (data.length < 1 + IV_LENGTH + AUTH_TAG_LENGTH + 1) return ciphertext;
@@ -168,10 +196,25 @@ export function isEncrypted(value: string): boolean {
 }
 
 /**
+ * True only if `value` is ciphertext that authenticates under our keys.
+ * Stricter than isEncrypted(): user text that merely looks like base64 is
+ * not mistaken for ciphertext (and therefore still gets encrypted).
+ */
+export function isOurCiphertext(value: string): boolean {
+  if (!state.randomKey || !isEncrypted(value)) return false;
+  try {
+    decrypt(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Safely decrypt — returns the original value if it doesn't appear to be encrypted.
  */
 export function safeDecrypt(value: string): string {
-  if (!randomKey) return value;
+  if (!state.randomKey) return value;
   if (!isEncrypted(value)) return value;
   try {
     return decrypt(value);
@@ -184,5 +227,12 @@ export function safeDecrypt(value: string): string {
  * Returns true if encryption is enabled (subkeys have been derived).
  */
 export function isEncryptionEnabled(): boolean {
-  return !!randomKey && !!deterministicKey;
+  return !!state.randomKey && !!state.deterministicKey;
+}
+
+// Never write plaintext in production — throw instead of falling through.
+function assertNotProduction(): void {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("Encryption key not loaded; refusing to write plaintext in production.");
+  }
 }

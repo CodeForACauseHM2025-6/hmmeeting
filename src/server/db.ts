@@ -8,8 +8,9 @@ import {
   encrypt,
   encryptDeterministic,
   safeDecrypt,
-  isEncrypted,
+  isOurCiphertext,
   isEncryptionEnabled,
+  initEncryption,
 } from "./encryption";
 
 // Fields encrypted per model and their encryption mode
@@ -43,7 +44,7 @@ const ALL_DECRYPTABLE_FIELDS = new Set([
 
 function encryptField(value: unknown, mode: "deterministic" | "random"): unknown {
   if (typeof value !== "string" || !value) return value;
-  if (isEncrypted(value)) return value;
+  if (isOurCiphertext(value)) return value;
   return mode === "deterministic" ? encryptDeterministic(value) : encrypt(value);
 }
 
@@ -113,10 +114,9 @@ function encryptArgs(model: string, args: Record<string, unknown>) {
 function createPrismaClient() {
   const baseClient = new PrismaClient({ log: ["error", "warn"] });
 
-  if (!isEncryptionEnabled()) {
-    return baseClient;
-  }
-
+  // Always install the extension and decide per-operation: this module can be
+  // evaluated before instrumentation's initEncryption() resolves, so checking
+  // once at construction time could permanently skip encryption.
   return baseClient.$extends({
     query: {
       $allModels: {
@@ -130,6 +130,13 @@ function createPrismaClient() {
           args: Record<string, unknown>;
           query: (args: Record<string, unknown>) => Promise<unknown>;
         }) {
+          // Idempotent; also covers scripts that never run instrumentation.
+          await initEncryption();
+          if (!isEncryptionEnabled()) {
+            // Dev without ENCRYPTION_KEY: plaintext passthrough. In production
+            // initEncryption() already threw, so we never get here.
+            return query(args);
+          }
           encryptArgs(model, args);
           const result = await query(args);
           if (result && typeof result === "object") {
