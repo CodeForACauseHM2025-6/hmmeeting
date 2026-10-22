@@ -8,6 +8,7 @@ import {
   buildDayDateMap,
   formatMeetingDateTime,
   formatScheduleDate,
+  getMeetingDateTime,
   type PeriodValue,
 } from "@/src/config/schedule";
 
@@ -83,6 +84,12 @@ export default function TeacherAvailabilityPage() {
 
     return { orderedDays, todayCycleDay };
   }, [dayDates]);
+
+  // Teachers can't book meetings (the API returns 403), so don't show them
+  // the booking grid at all.
+  useEffect(() => {
+    if (userRole === "TEACHER") router.replace("/dashboard");
+  }, [userRole, router]);
 
   useEffect(() => {
     if (!teacherId) return;
@@ -338,6 +345,12 @@ export default function TeacherAvailabilityPage() {
                   else if (teacherFree) { backgroundColor = "var(--slot-teacher)"; borderColor = "var(--slot-teacher)"; }
 
                   const isColored = backgroundColor !== "var(--surface-warm)";
+                  // Mirrors the POST checks: the teacher must have marked the
+                  // period free, and today's earlier periods are in the past.
+                  const isPast =
+                    !!dayDates[day] &&
+                    getMeetingDateTime(dayDates[day], period).start.getTime() <= Date.now();
+                  const bookable = teacherFree && !isPast;
                   const displayLabel = isOH ? "OH" : period === "BREAK" ? "Break" : period;
 
                   return (
@@ -350,6 +363,8 @@ export default function TeacherAvailabilityPage() {
                         type="button"
                         className="slot-btn"
                         onClick={() => handleSlotClick(day, period)}
+                        disabled={!bookable}
+                        title={!teacherFree ? "Teacher isn't free this period" : isPast ? "This period has already started" : undefined}
                         style={{
                           width: "100%",
                           padding: "6px 0",
@@ -359,7 +374,8 @@ export default function TeacherAvailabilityPage() {
                           color: isColored ? "#fff" : "var(--muted)",
                           fontWeight: 600,
                           fontSize: "12px",
-                          cursor: "pointer",
+                          cursor: bookable ? "pointer" : "not-allowed",
+                          opacity: isPast ? 0.4 : 1,
                         }}
                       >
                         {displayLabel}

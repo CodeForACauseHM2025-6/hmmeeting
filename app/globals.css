@@ -118,7 +118,7 @@ button:active {
 .slot-btn {
   transition: transform 0.1s ease, filter 0.1s ease, box-shadow 0.1s ease;
 }
-.slot-btn:hover {
+.slot-btn:hover:not(:disabled) {
   filter: brightness(0.88);
   transform: scale(1.08);
   z-index: 1;
