@@ -49,6 +49,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Appointment not found" }, { status: 404 });
     }
 
+    // Only a still-pending request has anything to (re)send; otherwise this
+    // endpoint becomes a way to spam the teacher about stale meetings.
+    if (appointment.status !== "PENDING" || !appointment.emailToken) {
+      return NextResponse.json({ error: "Meeting is no longer pending" }, { status: 409 });
+    }
+
     const result = await sendMeetingEmails({
       studentName: appointment.student.fullName,
       studentEmail: appointment.student.email,
@@ -56,7 +62,7 @@ export async function POST(request: Request) {
       teacherEmail: appointment.teacher.user.email,
       day: appointment.day,
       period: appointment.period,
-      emailToken: appointment.emailToken ?? undefined,
+      emailToken: appointment.emailToken,
       studentNote: appointment.studentNote ?? undefined,
     });
 
