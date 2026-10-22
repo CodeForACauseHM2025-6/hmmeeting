@@ -22,6 +22,34 @@ type AppointmentPayload = {
 
 const SETTINGS_ID = "global";
 
+// Which rows each side still sees. `completedBy` records who already
+// dismissed a COMPLETED meeting; auto-completed rows have completedBy = null
+// and must stay visible to both sides. (`{ not: X }` alone excludes NULLs in
+// SQL, which made auto-completed meetings vanish for everyone.)
+function teacherVisibleWhere(teacherId: string) {
+  return {
+    teacherId,
+    OR: [
+      { status: { notIn: ["CANCELLED" as const, "COMPLETED" as const] } },
+      { status: "CANCELLED" as const, studentCancelled: true },
+      { status: "COMPLETED" as const, completedBy: null },
+      { status: "COMPLETED" as const, completedBy: { not: "TEACHER" as const } },
+    ],
+  };
+}
+
+function bookerVisibleWhere(studentId: string) {
+  return {
+    studentId,
+    OR: [
+      { status: { notIn: ["CANCELLED" as const, "COMPLETED" as const] } },
+      { status: "CANCELLED" as const, studentCancelled: false },
+      { status: "COMPLETED" as const, completedBy: null },
+      { status: "COMPLETED" as const, completedBy: { not: "STUDENT" as const } },
+    ],
+  };
+}
+
 async function getScheduleSnapshot() {
   const settings = await prisma.appSettings.upsert({
     where: { id: SETTINGS_ID },
@@ -99,14 +127,7 @@ export async function GET() {
     }
 
     let appointments = await prisma.appointment.findMany({
-      where: {
-        teacherId,
-        OR: [
-          { status: { notIn: ["CANCELLED", "COMPLETED"] } },
-          { status: "CANCELLED", studentCancelled: true },
-          { status: "COMPLETED", completedBy: { not: "TEACHER" } },
-        ],
-      },
+      where: teacherVisibleWhere(teacherId),
       include: { student: true },
       orderBy: [{ day: "asc" }, { period: "asc" }],
     });
@@ -124,14 +145,7 @@ export async function GET() {
 
     if (didAutoComplete) {
       appointments = await prisma.appointment.findMany({
-        where: {
-          teacherId,
-          OR: [
-            { status: { notIn: ["CANCELLED", "COMPLETED"] } },
-            { status: "CANCELLED", studentCancelled: true },
-            { status: "COMPLETED", completedBy: { not: "TEACHER" } },
-          ],
-        },
+        where: teacherVisibleWhere(teacherId),
         include: { student: true },
         orderBy: [{ day: "asc" }, { period: "asc" }],
       });
@@ -170,14 +184,7 @@ export async function GET() {
   // Admins see their appointments as a booker (same as students)
   if (resolvedRole === "ADMIN") {
     let adminAppointments = await prisma.appointment.findMany({
-      where: {
-        studentId: user.id,
-        OR: [
-          { status: { notIn: ["CANCELLED", "COMPLETED"] } },
-          { status: "CANCELLED", studentCancelled: false },
-          { status: "COMPLETED", completedBy: { not: "STUDENT" } },
-        ],
-      },
+      where: bookerVisibleWhere(user.id),
       include: { teacher: { include: { user: true } } },
       orderBy: [{ day: "asc" }, { period: "asc" }],
     });
@@ -195,14 +202,7 @@ export async function GET() {
 
     if (didAutoCompleteAdmin) {
       adminAppointments = await prisma.appointment.findMany({
-        where: {
-          studentId: user.id,
-          OR: [
-            { status: { notIn: ["CANCELLED", "COMPLETED"] } },
-            { status: "CANCELLED", studentCancelled: false },
-            { status: "COMPLETED", completedBy: { not: "STUDENT" } },
-          ],
-        },
+        where: bookerVisibleWhere(user.id),
         include: { teacher: { include: { user: true } } },
         orderBy: [{ day: "asc" }, { period: "asc" }],
       });
@@ -240,14 +240,7 @@ export async function GET() {
   }
 
   let appointments = await prisma.appointment.findMany({
-    where: {
-      studentId: user.id,
-      OR: [
-        { status: { notIn: ["CANCELLED", "COMPLETED"] } },
-        { status: "CANCELLED", studentCancelled: false },
-        { status: "COMPLETED", completedBy: { not: "STUDENT" } },
-      ],
-    },
+    where: bookerVisibleWhere(user.id),
     include: { teacher: { include: { user: true } } },
     orderBy: [{ day: "asc" }, { period: "asc" }],
   });
@@ -265,14 +258,7 @@ export async function GET() {
 
   if (didAutoComplete) {
     appointments = await prisma.appointment.findMany({
-      where: {
-        studentId: user.id,
-        OR: [
-          { status: { notIn: ["CANCELLED", "COMPLETED"] } },
-          { status: "CANCELLED", studentCancelled: false },
-          { status: "COMPLETED", completedBy: { not: "STUDENT" } },
-        ],
-      },
+      where: bookerVisibleWhere(user.id),
       include: { teacher: { include: { user: true } } },
       orderBy: [{ day: "asc" }, { period: "asc" }],
     });
@@ -357,11 +343,15 @@ export async function POST(request: Request) {
     return new Response("Teacher not found", { status: 404 });
   }
 
-  // Check if this is an office hours slot
+  // Only periods the teacher has marked free (or as office hours) are
+  // bookable — otherwise a crafted POST could request any teaching period.
   const availabilitySlot = await prisma.availability.findFirst({
     where: { teacherId, day, period },
   });
-  const isOfficeHours = availabilitySlot?.type === "OFFICE_HOURS";
+  if (!availabilitySlot) {
+    return new Response("The teacher isn't available during that period", { status: 409 });
+  }
+  const isOfficeHours = availabilitySlot.type === "OFFICE_HOURS";
 
   // For regular meetings, note is required
   if (!isOfficeHours && !studentNote) {
@@ -373,6 +363,11 @@ export async function POST(request: Request) {
     { day, period, createdAt: new Date() },
     scheduleSettings
   );
+  // Today's cycle day maps to today's date, so earlier periods today resolve
+  // to a time that has already passed.
+  if (!meetingInfo || meetingInfo.start.getTime() <= Date.now()) {
+    return new Response("That period has already started — pick a later slot", { status: 409 });
+  }
 
   // Both conflict checks and the create run inside one transaction so that
   // parallel POSTs against the same slot can't all pass the check then race
@@ -495,6 +490,25 @@ function sanitizeAppointmentForClient<T extends Record<string, unknown>>(row: T)
   return rest;
 }
 
+// A COMPLETED meeting is deleted once both sides have dismissed it.
+// completedBy === null (auto-completed) means nobody has yet: record this
+// side's dismissal so the other side still sees it.
+async function acknowledgeCompleted(
+  id: string,
+  completedBy: "STUDENT" | "TEACHER" | null,
+  side: "STUDENT" | "TEACHER",
+) {
+  if (completedBy === null) {
+    const updated = await prisma.appointment.update({
+      where: { id },
+      data: { completedBy: side },
+    });
+    return Response.json(sanitizeAppointmentForClient(updated));
+  }
+  const deleted = await prisma.appointment.delete({ where: { id } });
+  return Response.json(sanitizeAppointmentForClient(deleted));
+}
+
 // Helper for interactive transactions. The `$extends`-wrapped client confuses
 // the TS overload picker (it sees the array overload first), so we coerce to
 // the callback overload here. Calling through the prisma object preserves
@@ -563,10 +577,16 @@ export async function PATCH(request: Request) {
     if (!room) {
       return new Response("Room is required to accept a meeting", { status: 400 });
     }
-    const updated = await prisma.appointment.update({
-      where: { id },
+    // Status guard in the WHERE so a stale card can't resurrect a cancelled
+    // or completed meeting (and it's atomic vs. a concurrent student cancel).
+    const { count } = await prisma.appointment.updateMany({
+      where: { id, status: "PENDING" },
       data: { status: "CONFIRMED", room, teacherNote: teacherNote || null, emailToken: null },
     });
+    if (count === 0) {
+      return new Response("This request is no longer pending", { status: 409 });
+    }
+    const updated = await prisma.appointment.findUniqueOrThrow({ where: { id } });
 
     try {
       const fullAppointment = await prisma.appointment.findUnique({
@@ -606,8 +626,8 @@ export async function PATCH(request: Request) {
     if (appointment.teacherId !== teacherId) {
       return new Response("Not found", { status: 404 });
     }
-    const updated = await prisma.appointment.update({
-      where: { id },
+    const { count } = await prisma.appointment.updateMany({
+      where: { id, status: "PENDING" },
       data: {
         status: "CANCELLED",
         teacherNote: teacherNote || null,
@@ -616,6 +636,10 @@ export async function PATCH(request: Request) {
         emailToken: null,
       },
     });
+    if (count === 0) {
+      return new Response("This request is no longer pending", { status: 409 });
+    }
+    const updated = await prisma.appointment.findUniqueOrThrow({ where: { id } });
 
     try {
       const fullAppointment = await prisma.appointment.findUnique({
@@ -663,17 +687,17 @@ export async function PATCH(request: Request) {
       return new Response("Not found", { status: 404 });
     }
 
-    if (appointment.status !== "CONFIRMED") {
-      return new Response("Only confirmed meetings can be completed", { status: 400 });
-    }
-
-    const updated = await prisma.appointment.update({
-      where: { id },
+    const { count } = await prisma.appointment.updateMany({
+      where: { id, status: "CONFIRMED" },
       data: {
         status: "COMPLETED",
         completedBy: isBooker ? "STUDENT" : "TEACHER",
       },
     });
+    if (count === 0) {
+      return new Response("Only confirmed meetings can be completed", { status: 400 });
+    }
+    const updated = await prisma.appointment.findUniqueOrThrow({ where: { id } });
 
     return Response.json(sanitizeAppointmentForClient(updated));
   }
@@ -693,8 +717,8 @@ export async function PATCH(request: Request) {
       return new Response("Not found", { status: 404 });
     }
 
-    const updated = await prisma.appointment.update({
-      where: { id },
+    const { count } = await prisma.appointment.updateMany({
+      where: { id, status: { in: ["PENDING", "CONFIRMED"] } },
       data: {
         status: "CANCELLED",
         room: null,
@@ -702,6 +726,10 @@ export async function PATCH(request: Request) {
         emailToken: null,
       },
     });
+    if (count === 0) {
+      return new Response("Only pending or confirmed meetings can be cancelled", { status: 409 });
+    }
+    const updated = await prisma.appointment.findUniqueOrThrow({ where: { id } });
 
     try {
       const fullAppointment = await prisma.appointment.findUnique({
@@ -785,8 +813,7 @@ export async function PATCH(request: Request) {
         if (appointment.completedBy === "STUDENT") {
           return new Response("Not found", { status: 404 });
         }
-        const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(sanitizeAppointmentForClient(deleted));
+        return acknowledgeCompleted(id, appointment.completedBy, "STUDENT");
       }
 
       if (resolvedRole === "TEACHER") {
@@ -797,8 +824,7 @@ export async function PATCH(request: Request) {
         if (appointment.completedBy === "TEACHER") {
           return new Response("Not found", { status: 404 });
         }
-        const deleted = await prisma.appointment.delete({ where: { id } });
-        return Response.json(sanitizeAppointmentForClient(deleted));
+        return acknowledgeCompleted(id, appointment.completedBy, "TEACHER");
       }
 
       return new Response("Not found", { status: 404 });

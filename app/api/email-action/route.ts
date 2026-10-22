@@ -314,8 +314,10 @@ export async function POST(request: Request) {
       );
     }
 
-    await prisma.appointment.update({
-      where: { id: appointment.id },
+    // Atomic PENDING guard: two clicks (or a concurrent in-app cancel) can't
+    // both pass the status check above and double-apply.
+    const { count } = await prisma.appointment.updateMany({
+      where: { id: appointment.id, status: "PENDING" },
       data: {
         status: "CONFIRMED",
         room,
@@ -323,6 +325,7 @@ export async function POST(request: Request) {
         emailToken: null,
       },
     });
+    if (count === 0) return alreadyHandledResponse();
 
     try {
       await sendStudentConfirmationEmail({
@@ -373,8 +376,8 @@ export async function POST(request: Request) {
   }
 
   // action === "decline"
-  await prisma.appointment.update({
-    where: { id: appointment.id },
+  const { count } = await prisma.appointment.updateMany({
+    where: { id: appointment.id, status: "PENDING" },
     data: {
       status: "CANCELLED",
       teacherNote: note || null,
@@ -383,6 +386,7 @@ export async function POST(request: Request) {
       emailToken: null,
     },
   });
+  if (count === 0) return alreadyHandledResponse();
 
   try {
     await sendStudentDeclinedEmail({
@@ -407,5 +411,16 @@ export async function POST(request: Request) {
       <p style="margin-top: 16px;"><a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard" class="btn btn-decline">Go to Dashboard</a></p>
     `),
     { headers: { "Content-Type": "text/html" } }
+  );
+}
+
+function alreadyHandledResponse() {
+  return new Response(
+    htmlPage("Already Handled", `
+      <h2>Already Handled</h2>
+      <p>This meeting request is no longer pending.</p>
+      <p style="margin-top: 16px;"><a href="${process.env.APP_URL || "http://localhost:3000"}/dashboard" class="btn btn-back" style="margin-left: 0;">Go to Dashboard</a></p>
+    `),
+    { headers: { "Content-Type": "text/html" }, status: 409 }
   );
 }
